@@ -202,7 +202,7 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-4 ${
+      <nav className={`sidebar-scrollbar flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-4 ${
         collapsed ? "px-2" : "px-3"
       }`}>
         {/* Overview section */}

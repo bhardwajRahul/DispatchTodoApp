@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onShortcutHelp={() => setShortcutHelpOpen(true)}
         />
       </Suspense>
-      <main className="flex-1 overflow-y-auto bg-neutral-50 dark:bg-neutral-950">
+      <main className="app-main-scrollbar flex-1 overflow-y-auto bg-neutral-50 dark:bg-neutral-950">
         {children}
       </main>
       {searchOpen && (

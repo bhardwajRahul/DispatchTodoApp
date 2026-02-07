@@ -325,3 +325,63 @@ html.theme-transitioning,
 html.theme-transitioning * {
   transition: background-color 0.3s ease, color 0.15s ease, border-color 0.3s ease !important;
 }
+
+/* Themed scrollbars for app shell regions */
+.app-main-scrollbar,
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+}
+
+.app-main-scrollbar {
+  scrollbar-color: theme(--color-neutral-400) transparent;
+}
+
+.app-main-scrollbar::-webkit-scrollbar,
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.app-main-scrollbar::-webkit-scrollbar-track,
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-main-scrollbar::-webkit-scrollbar-thumb,
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.app-main-scrollbar::-webkit-scrollbar-thumb {
+  background-color: theme(--color-neutral-400);
+}
+
+.app-main-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: theme(--color-neutral-500);
+}
+
+:is(.dark) .app-main-scrollbar {
+  scrollbar-color: theme(--color-neutral-600) transparent;
+}
+
+:is(.dark) .app-main-scrollbar::-webkit-scrollbar-thumb {
+  background-color: theme(--color-neutral-600);
+}
+
+:is(.dark) .app-main-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: theme(--color-neutral-500);
+}
+
+.sidebar-scrollbar {
+  scrollbar-color: rgb(59 130 246 / 0.4) transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(59 130 246 / 0.35);
+}
+
+.sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgb(59 130 246 / 0.55);
+}
