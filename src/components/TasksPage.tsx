@@ -400,6 +400,7 @@ function TaskRow({
       </div>
 
       <span
+        title={`Priority: ${task.priority}`}
         className={`text-xs font-medium px-2 py-0.5 rounded-full ${PRIORITY_BADGE[task.priority]}`}
       >
         {task.priority}

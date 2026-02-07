@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, type Task, type Note } from "@/lib/client";
+import { api, type Task, type Note, type TaskStatus } from "@/lib/client";
 import {
   IconPlus,
   IconDocument,
@@ -45,6 +45,32 @@ export function Dashboard({ userName }: { userName: string }) {
   const recentNotes = [...notes]
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, 5);
+
+  type ActivityItem = {
+    id: string;
+    type: "task" | "note";
+    title: string;
+    date: string;
+    status?: TaskStatus;
+  };
+
+  const recentActivity: ActivityItem[] = [
+    ...tasks.map((t) => ({
+      id: `task-${t.id}`,
+      type: "task",
+      title: t.title,
+      date: t.updatedAt,
+      status: t.status,
+    })),
+    ...notes.map((n) => ({
+      id: `note-${n.id}`,
+      type: "note",
+      title: n.title,
+      date: n.updatedAt,
+    })),
+  ]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 6);
 
   // Progress calculation
   const totalTasks = tasks.length;
@@ -200,6 +226,54 @@ export function Dashboard({ userName }: { userName: string }) {
           )}
         </section>
       </div>
+
+      {/* Recent Activity */}
+      <section className="animate-fade-in-up" style={{ animationDelay: "250ms" }}>
+        <h2 className="text-lg font-semibold mb-3 dark:text-white">Recent Activity</h2>
+        {recentActivity.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-8 text-center">
+            <IconCalendar className="w-8 h-8 text-neutral-300 dark:text-neutral-600 mx-auto mb-2" />
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">No activity yet</p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-sm">
+            <ul className="border-l border-neutral-200 dark:border-neutral-800/70 pl-4 space-y-3">
+              {recentActivity.map((item) => {
+                const dotClass =
+                  item.type === "note"
+                    ? "bg-purple-500"
+                    : item.status === "done"
+                      ? "bg-green-500"
+                      : item.status === "in_progress"
+                        ? "bg-yellow-500"
+                        : "bg-blue-500";
+
+                const label =
+                  item.type === "note"
+                    ? "Updated note"
+                    : item.status === "done"
+                      ? "Completed task"
+                      : "Updated task";
+
+                return (
+                  <li key={item.id} className="relative">
+                    <span
+                      className={`absolute -left-[9px] top-1.5 h-2.5 w-2.5 rounded-full ${dotClass}`}
+                    />
+                    <p className="text-sm text-neutral-700 dark:text-neutral-300">
+                      <span className="font-medium">{label}:</span>{" "}
+                      <span className="text-neutral-600 dark:text-neutral-300">{item.title}</span>
+                    </p>
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                      {new Date(item.date).toLocaleString()}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

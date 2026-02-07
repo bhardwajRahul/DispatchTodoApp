@@ -31,6 +31,7 @@ export function DispatchPage() {
   const [saving, setSaving] = useState(false);
   const [savedSummary, setSavedSummary] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [confirmComplete, setConfirmComplete] = useState(false);
   const [showAddTasks, setShowAddTasks] = useState(false);
 
   const fetchDispatch = useCallback(async () => {
@@ -59,6 +60,12 @@ export function DispatchPage() {
   useEffect(() => {
     fetchDispatch();
   }, [fetchDispatch]);
+
+  useEffect(() => {
+    if (!confirmComplete) return;
+    const timer = setTimeout(() => setConfirmComplete(false), 3500);
+    return () => clearTimeout(timer);
+  }, [confirmComplete]);
 
   async function handleSaveSummary() {
     if (!dispatch) return;
@@ -136,6 +143,16 @@ export function DispatchPage() {
     } finally {
       setCompleting(false);
     }
+  }
+
+  async function handleCompleteClick() {
+    if (completing) return;
+    if (!confirmComplete) {
+      setConfirmComplete(true);
+      return;
+    }
+    setConfirmComplete(false);
+    await handleComplete();
   }
 
   function navigateDay(offset: number) {
@@ -398,7 +415,7 @@ export function DispatchPage() {
       {dispatch && !dispatch.finalized && (
         <div className="flex justify-end pt-2 animate-fade-in-up" style={{ animationDelay: "250ms" }}>
           <button
-            onClick={handleComplete}
+            onClick={handleCompleteClick}
             disabled={completing}
             className="rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-500 disabled:opacity-50 active:scale-95 transition-all inline-flex items-center gap-2 shadow-sm"
           >
@@ -407,7 +424,7 @@ export function DispatchPage() {
             ) : (
               <IconCheck className="w-4 h-4" />
             )}
-            {completing ? "Completing..." : "Complete Day"}
+            {completing ? "Completing..." : confirmComplete ? "Confirm Complete" : "Complete Day"}
           </button>
         </div>
       )}
