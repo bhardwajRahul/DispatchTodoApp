@@ -60,3 +60,7 @@ Domain-specific tables (tasks, notes, etc.) will be added in subsequent phases.
 - Runs locally via `npm run dev` during development.
 - Production mode via `npm run build && npm run start` for a more optimized local server.
 - No deployment target — this is a personal localhost application.
+
+## Testing
+
+- When appropriate, test with the chrome-devtools mcp so that you can see and interact with things first-hand.

@@ -38,6 +38,7 @@ Set up Vitest and write tests covering the authentication layer and all CRUD API
 
 Build the front-end pages that let the user interact with tasks and notes.
 
+- [ ] ** 3.0.1** Ensure GitHub account creation works. 
 - [ ] **3.1** Create a dashboard page (`/`) showing a summary: open task count, recent notes, upcoming due dates.
 - [ ] **3.2** Build a tasks list page (`/tasks`) with filtering (status, priority) and sorting (due date, created date).
 - [ ] **3.3** Build a task detail/edit page or modal for creating and editing a single task.
