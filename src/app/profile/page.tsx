@@ -38,7 +38,7 @@ export default async function Profile() {
   const completionPercent = taskCount > 0 ? Math.round(((doneCount ?? 0) / taskCount) * 100) : 0;
 
   return (
-    <div className="mx-auto max-w-5xl p-6 space-y-6">
+    <div className="mx-auto max-w-5xl p-6 space-y-6 animate-fade-in-up">
       <div>
         <h1 className="text-2xl font-bold dark:text-white">Profile</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">

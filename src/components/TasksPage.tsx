@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   api,
@@ -23,6 +23,8 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
   medium: 1,
   low: 2,
 };
+
+const COMPLETE_DISMISS_MS = 420;
 
 export function TasksPage() {
   const searchParams = useSearchParams();
@@ -49,7 +51,29 @@ export function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [flashingId, setFlashingId] = useState<string | null>(null);
+  const [completingIds, setCompletingIds] = useState<string[]>([]);
+  const completionTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const hasActiveFilters = Boolean(statusFilter || priorityFilter || projectFilter);
+
+  function queueCompletionCleanup(taskId: string) {
+    const existing = completionTimeoutsRef.current[taskId];
+    if (existing) {
+      clearTimeout(existing);
+    }
+    completionTimeoutsRef.current[taskId] = setTimeout(() => {
+      setCompletingIds((prev) => prev.filter((id) => id !== taskId));
+      delete completionTimeoutsRef.current[taskId];
+    }, COMPLETE_DISMISS_MS);
+  }
+
+  function clearCompletionState(taskId: string) {
+    const timeout = completionTimeoutsRef.current[taskId];
+    if (timeout) {
+      clearTimeout(timeout);
+      delete completionTimeoutsRef.current[taskId];
+    }
+    setCompletingIds((prev) => prev.filter((id) => id !== taskId));
+  }
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -87,6 +111,13 @@ export function TasksPage() {
       active = false;
     };
   }, []);
+
+  useEffect(
+    () => () => {
+      Object.values(completionTimeoutsRef.current).forEach((timeout) => clearTimeout(timeout));
+    },
+    [],
+  );
 
   // Listen for keyboard shortcut to create new task
   useEffect(() => {
@@ -150,7 +181,7 @@ export function TasksPage() {
 
   const filteredTasks = showCompleted
     ? tasks
-    : tasks.filter((task) => task.status !== "done");
+    : tasks.filter((task) => task.status !== "done" || completingIds.includes(task.id));
 
   const sorted = [...filteredTasks].sort((a, b) => {
     if (sortBy === "dueDate") {
@@ -190,16 +221,27 @@ export function TasksPage() {
 
   async function handleDoneToggle(task: Task) {
     const next: TaskStatus = task.status === "done" ? "open" : "done";
+    const shouldAnimateDismiss = next === "done" && !showCompleted;
 
-    setFlashingId(task.id);
+    if (completingIds.includes(task.id)) {
+      return;
+    }
+
+    if (shouldAnimateDismiss) {
+      setCompletingIds((prev) => (prev.includes(task.id) ? prev : [...prev, task.id]));
+      queueCompletionCleanup(task.id);
+    } else {
+      clearCompletionState(task.id);
+    }
+
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)),
     );
-    setTimeout(() => setFlashingId(null), 600);
 
     try {
       await api.tasks.update(task.id, { status: next });
     } catch {
+      clearCompletionState(task.id);
       setTasks((prev) =>
         prev.map((t) =>
           t.id === task.id ? { ...t, status: task.status } : t,
@@ -471,6 +513,7 @@ export function TasksPage() {
               project={task.projectId ? projectMap.get(task.projectId) ?? null : null}
               index={i}
               isFlashing={flashingId === task.id}
+              isCompleting={completingIds.includes(task.id)}
               deletingConfirm={deletingId === task.id}
               onDoneToggle={() => handleDoneToggle(task)}
               onStatusToggle={() => handleStatusToggle(task)}
@@ -574,6 +617,7 @@ function TaskRow({
   project,
   index,
   isFlashing,
+  isCompleting,
   deletingConfirm,
   onDoneToggle,
   onStatusToggle,
@@ -585,6 +629,7 @@ function TaskRow({
   project: Project | null;
   index: number;
   isFlashing: boolean;
+  isCompleting: boolean;
   deletingConfirm: boolean;
   onDoneToggle: () => void;
   onStatusToggle: () => void;
@@ -606,9 +651,11 @@ function TaskRow({
       className={`group flex items-center gap-3 p-4 transition-all duration-200 ${
         index > 0 ? "border-t border-neutral-100 dark:border-neutral-800/50" : ""
       } ${
-        task.status === "done" ? "opacity-60" : ""
+        task.status === "done" && !isCompleting ? "opacity-60" : ""
       } ${
         isFlashing ? "animate-row-flash" : ""
+      } ${
+        isCompleting ? "animate-task-complete-dismiss" : ""
       } hover:bg-neutral-50 dark:hover:bg-neutral-800/30 hover:-translate-y-px hover:shadow-sm`}
       style={{ listStyle: "none" }}
     >
@@ -618,7 +665,7 @@ function TaskRow({
         title={task.status === "done" ? "Mark as not done" : "Mark as done"}
         className="flex-shrink-0 w-5 h-5 rounded border-2 border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500 transition-all active:scale-95 flex items-center justify-center"
       >
-        {task.status === "done" && (
+        {(task.status === "done" || isCompleting) && (
           <svg className="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -627,7 +674,9 @@ function TaskRow({
 
       <div className="flex-1 min-w-0">
         <p
-          className={`text-sm font-medium truncate dark:text-white ${task.status === "done" ? "line-through" : ""}`}
+          className={`text-sm font-medium truncate dark:text-white ${
+            task.status === "done" && !isCompleting ? "line-through" : ""
+          } ${isCompleting ? "task-title-completing" : ""}`}
         >
           {task.title}
         </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, type ProjectWithStats, type Task, type TaskStatus } from "@/lib/client";
 import { ProjectModal } from "@/components/ProjectModal";
@@ -38,6 +38,8 @@ const PROJECT_STATUS_ICONS: Record<
   completed: IconCheckCircle,
 };
 
+const COMPLETE_DISMISS_MS = 420;
+
 export function ProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,6 +57,8 @@ export function ProjectsPage() {
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [completingTaskIds, setCompletingTaskIds] = useState<string[]>([]);
+  const completionTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const selectedId = searchParams.get("projectId") || "";
   const selectedProject = useMemo(
@@ -69,9 +73,33 @@ export function ProjectsPage() {
     [projects, showCompletedProjects],
   );
   const visibleTasks = useMemo(
-    () => (showCompleted ? tasks : tasks.filter((task) => task.status !== "done")),
-    [tasks, showCompleted],
+    () => (
+      showCompleted
+        ? tasks
+        : tasks.filter((task) => task.status !== "done" || completingTaskIds.includes(task.id))
+    ),
+    [tasks, showCompleted, completingTaskIds],
   );
+
+  function queueCompletionCleanup(taskId: string) {
+    const existing = completionTimeoutsRef.current[taskId];
+    if (existing) {
+      clearTimeout(existing);
+    }
+    completionTimeoutsRef.current[taskId] = setTimeout(() => {
+      setCompletingTaskIds((prev) => prev.filter((id) => id !== taskId));
+      delete completionTimeoutsRef.current[taskId];
+    }, COMPLETE_DISMISS_MS);
+  }
+
+  function clearCompletionState(taskId: string) {
+    const timeout = completionTimeoutsRef.current[taskId];
+    if (timeout) {
+      clearTimeout(timeout);
+      delete completionTimeoutsRef.current[taskId];
+    }
+    setCompletingTaskIds((prev) => prev.filter((id) => id !== taskId));
+  }
 
   useEffect(() => {
     let active = true;
@@ -140,6 +168,13 @@ export function ProjectsPage() {
     document.addEventListener("mousedown", handleCancel);
     return () => document.removeEventListener("mousedown", handleCancel);
   }, [deletingTaskId]);
+
+  useEffect(
+    () => () => {
+      Object.values(completionTimeoutsRef.current).forEach((timeout) => clearTimeout(timeout));
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!selectedId) {
@@ -216,6 +251,18 @@ export function ProjectsPage() {
 
   async function handleTaskDoneToggle(task: Task) {
     const nextStatus: TaskStatus = task.status === "done" ? "open" : "done";
+    const shouldAnimateDismiss = nextStatus === "done" && !showCompleted;
+
+    if (completingTaskIds.includes(task.id)) {
+      return;
+    }
+
+    if (shouldAnimateDismiss) {
+      setCompletingTaskIds((prev) => (prev.includes(task.id) ? prev : [...prev, task.id]));
+      queueCompletionCleanup(task.id);
+    } else {
+      clearCompletionState(task.id);
+    }
 
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t)),
@@ -225,6 +272,7 @@ export function ProjectsPage() {
       await api.tasks.update(task.id, { status: nextStatus });
       await refreshProjects();
     } catch {
+      clearCompletionState(task.id);
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)),
       );
@@ -455,22 +503,32 @@ export function ProjectsPage() {
                     </div>
                   ) : (
                     <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-                      {visibleTasks.map((task, i) => (
-                        <div
-                          key={task.id}
-                          className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
-                            i > 0 ? "border-t border-neutral-100 dark:border-neutral-800/60" : ""
+                      {visibleTasks.map((task, i) => {
+                        const isCompleting = completingTaskIds.includes(task.id);
+                        return (
+                          <div
+                            key={task.id}
+                            className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                              i > 0 ? "border-t border-neutral-100 dark:border-neutral-800/60" : ""
+                            } ${
+                              task.status === "done" && !isCompleting ? "opacity-60" : ""
+                            } ${
+                              isCompleting ? "animate-task-complete-dismiss" : ""
                             }`}
                           >
                             <input
                               type="checkbox"
-                              checked={task.status === "done"}
+                              checked={task.status === "done" || isCompleting}
                               onChange={() => handleTaskDoneToggle(task)}
                               className="h-4 w-4 rounded border-neutral-300 dark:border-neutral-600 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
                             />
                             <span
                               className={`flex-1 truncate dark:text-white ${
-                                task.status === "done" ? "line-through text-neutral-400 dark:text-neutral-500" : ""
+                                task.status === "done" && !isCompleting
+                                  ? "line-through text-neutral-400 dark:text-neutral-500"
+                                  : ""
+                              } ${
+                                isCompleting ? "task-title-completing" : ""
                               }`}
                             >
                               {task.title}
@@ -514,9 +572,10 @@ export function ProjectsPage() {
                               </button>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        );
+                      })}
+                    </div>
+                  )}
                   </div>
                 </div>
               )}

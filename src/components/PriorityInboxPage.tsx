@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   api,
   type Task,
@@ -30,6 +30,8 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
   low: 2,
 };
 
+const COMPLETE_DISMISS_MS = 420;
+
 function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
@@ -49,6 +51,8 @@ export function PriorityInboxPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [flashingId, setFlashingId] = useState<string | null>(null);
+  const [completingIds, setCompletingIds] = useState<string[]>([]);
+  const completionTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [snoozeMenuId, setSnoozeMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -79,21 +83,57 @@ export function PriorityInboxPage() {
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      Object.values(completionTimeoutsRef.current).forEach((timeout) => clearTimeout(timeout));
+    },
+    [],
+  );
+
+  function queueCompletionCleanup(taskId: string) {
+    const existing = completionTimeoutsRef.current[taskId];
+    if (existing) {
+      clearTimeout(existing);
+    }
+    completionTimeoutsRef.current[taskId] = setTimeout(() => {
+      setCompletingIds((prev) => prev.filter((id) => id !== taskId));
+      delete completionTimeoutsRef.current[taskId];
+    }, COMPLETE_DISMISS_MS);
+  }
+
+  function clearCompletionState(taskId: string) {
+    const timeout = completionTimeoutsRef.current[taskId];
+    if (timeout) {
+      clearTimeout(timeout);
+      delete completionTimeoutsRef.current[taskId];
+    }
+    setCompletingIds((prev) => prev.filter((id) => id !== taskId));
+  }
+
   const projectMap = new Map(projects.map((p) => [p.id, p]));
 
   const sortByPriority = (a: Task, b: Task) =>
     PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
 
   const overdueTasks = tasks
-    .filter((t) => t.dueDate && t.dueDate < today && t.status !== "done")
+    .filter(
+      (t) => t.dueDate && t.dueDate < today && (t.status !== "done" || completingIds.includes(t.id)),
+    )
     .sort(sortByPriority);
 
   const dueTodayTasks = tasks
-    .filter((t) => t.dueDate === today && t.status !== "done")
+    .filter(
+      (t) => t.dueDate === today && (t.status !== "done" || completingIds.includes(t.id)),
+    )
     .sort(sortByPriority);
 
   const highPriorityNoDueTasks = tasks
-    .filter((t) => !t.dueDate && t.priority === "high" && t.status !== "done")
+    .filter(
+      (t) =>
+        !t.dueDate
+        && t.priority === "high"
+        && (t.status !== "done" || completingIds.includes(t.id)),
+    )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const totalCount = overdueTasks.length + dueTodayTasks.length + highPriorityNoDueTasks.length;
@@ -124,15 +164,25 @@ export function PriorityInboxPage() {
   async function handleDoneToggle(task: Task) {
     const next: TaskStatus = task.status === "done" ? "open" : "done";
 
-    setFlashingId(task.id);
+    if (completingIds.includes(task.id)) {
+      return;
+    }
+
+    if (next === "done") {
+      setCompletingIds((prev) => (prev.includes(task.id) ? prev : [...prev, task.id]));
+      queueCompletionCleanup(task.id);
+    } else {
+      clearCompletionState(task.id);
+    }
+
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)),
     );
-    setTimeout(() => setFlashingId(null), 600);
 
     try {
       await api.tasks.update(task.id, { status: next });
     } catch {
+      clearCompletionState(task.id);
       setTasks((prev) =>
         prev.map((t) =>
           t.id === task.id ? { ...t, status: task.status } : t,
@@ -240,6 +290,7 @@ export function PriorityInboxPage() {
                   project={task.projectId ? projectMap.get(task.projectId) ?? null : null}
                   index={i}
                   isFlashing={flashingId === task.id}
+                  isCompleting={completingIds.includes(task.id)}
                   snoozeMenuOpen={snoozeMenuId === task.id}
                   deletingConfirm={deletingId === task.id}
                   onDoneToggle={() => handleDoneToggle(task)}
@@ -269,6 +320,7 @@ export function PriorityInboxPage() {
                   project={task.projectId ? projectMap.get(task.projectId) ?? null : null}
                   index={i}
                   isFlashing={flashingId === task.id}
+                  isCompleting={completingIds.includes(task.id)}
                   snoozeMenuOpen={snoozeMenuId === task.id}
                   deletingConfirm={deletingId === task.id}
                   onDoneToggle={() => handleDoneToggle(task)}
@@ -298,6 +350,7 @@ export function PriorityInboxPage() {
                   project={task.projectId ? projectMap.get(task.projectId) ?? null : null}
                   index={i}
                   isFlashing={flashingId === task.id}
+                  isCompleting={completingIds.includes(task.id)}
                   snoozeMenuOpen={snoozeMenuId === task.id}
                   deletingConfirm={deletingId === task.id}
                   onDoneToggle={() => handleDoneToggle(task)}
@@ -344,6 +397,7 @@ function InboxTaskRow({
   project,
   index,
   isFlashing,
+  isCompleting,
   snoozeMenuOpen,
   deletingConfirm,
   onDoneToggle,
@@ -359,6 +413,7 @@ function InboxTaskRow({
   project: Project | null;
   index: number;
   isFlashing: boolean;
+  isCompleting: boolean;
   snoozeMenuOpen: boolean;
   deletingConfirm: boolean;
   onDoneToggle: () => void;
@@ -408,9 +463,11 @@ function InboxTaskRow({
       className={`group relative flex items-center gap-3 p-4 transition-all duration-200 ${
         index > 0 ? "border-t border-neutral-100 dark:border-neutral-800/50" : ""
       } ${
-        task.status === "done" ? "opacity-60" : ""
+        task.status === "done" && !isCompleting ? "opacity-60" : ""
       } ${
         isFlashing ? "animate-row-flash" : ""
+      } ${
+        isCompleting ? "animate-task-complete-dismiss" : ""
       } ${!snoozeMenuOpen && !deletingConfirm ? "hover:bg-neutral-50 dark:hover:bg-neutral-800/30" : ""} ${
         snoozeMenuOpen || deletingConfirm ? "z-10" : ""
       }`}
@@ -421,7 +478,7 @@ function InboxTaskRow({
         title={task.status === "done" ? "Mark as not done" : "Mark as done"}
         className="flex-shrink-0 w-5 h-5 rounded border-2 border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500 transition-all active:scale-95 flex items-center justify-center"
       >
-        {task.status === "done" && (
+        {(task.status === "done" || isCompleting) && (
           <svg className="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -430,7 +487,9 @@ function InboxTaskRow({
 
       <div className="flex-1 min-w-0">
         <p
-          className={`text-sm font-medium truncate dark:text-white ${task.status === "done" ? "line-through" : ""}`}
+          className={`text-sm font-medium truncate dark:text-white ${
+            task.status === "done" && !isCompleting ? "line-through" : ""
+          } ${isCompleting ? "task-title-completing" : ""}`}
         >
           {task.title}
         </p>

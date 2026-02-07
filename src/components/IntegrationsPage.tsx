@@ -300,7 +300,7 @@ export function IntegrationsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8">
+    <div className="max-w-7xl mx-auto p-6 space-y-8 animate-fade-in-up">
       <header className="space-y-3">
         <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">Integrations</h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">Manage API keys and consume Dispatch endpoints with copy-ready snippets.</p>
