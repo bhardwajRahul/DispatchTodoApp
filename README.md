@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
+  <a href="#interactive-setup-recommended">Interactive Setup</a> •
   <a href="#feature-tour">Feature Tour</a> •
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#scripts">Scripts</a>
@@ -60,6 +61,28 @@ flowchart LR
 ```
 
 ## Quick Start
+
+### Interactive Setup (Recommended)
+
+Dispatch includes an interactive setup wizard that creates `.env.local`, initializes the database schema, and can optionally create your first user + seed demo data.
+
+Use one of the following:
+
+```powershell
+npm run setup
+```
+
+```powershell
+.\dispatch.ps1 setup
+```
+
+```bash
+./dispatch.sh setup
+```
+
+If `.env.local` already exists, the setup wizard asks before overwriting anything.
+
+### Manual Setup (Alternative)
 
 ### 1. Install
 
@@ -114,6 +137,7 @@ Open `http://localhost:3000`.
 
 ## Scripts
 
+- `npm run setup` - Launch interactive setup wizard (`scripts/setup.ts`)
 - `npm run dev` - Start dev server
 - `npm run build` - Build production bundle
 - `npm run start` - Start production server
@@ -124,6 +148,24 @@ Open `http://localhost:3000`.
 - `npm run db:studio` - Open Drizzle Studio
 - `npm run db:seed` - Seed sample data
 - `npm test` - Run test suite
+
+## Launcher Scripts
+
+- `.\dispatch.ps1 <command>` (Windows PowerShell)
+- `./dispatch.sh <command>` (Bash)
+- Shared commands: `setup`, `dev`, `start`, `build`, `update`, `seed`, `studio`, `test`, `lint`, `version`, `help`
+
+Example:
+
+```powershell
+.\dispatch.ps1 help
+.\dispatch.ps1 setup
+```
+
+```bash
+./dispatch.sh help
+./dispatch.sh setup
+```
 
 ---
 
