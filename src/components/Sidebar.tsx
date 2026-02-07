@@ -166,14 +166,20 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
     >
       {/* Brand */}
       <div className="flex items-center gap-3 px-4 h-14 flex-shrink-0 border-b border-neutral-800/50">
-        <IconBolt className="w-6 h-6 text-blue-400 flex-shrink-0" />
-        <span
-          className={`text-lg font-bold text-white whitespace-nowrap transition-all duration-300 ${
-            collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-          }`}
+        <Link
+          href="/"
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          title="Go to Dashboard"
         >
-          Dispatch
-        </span>
+          <IconBolt className="w-6 h-6 text-blue-400 flex-shrink-0" />
+          <span
+            className={`text-lg font-bold text-white whitespace-nowrap transition-all duration-300 ${
+              collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+            }`}
+          >
+            Dispatch
+          </span>
+        </Link>
       </div>
 
       {/* Navigation */}
