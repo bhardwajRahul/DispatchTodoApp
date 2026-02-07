@@ -24,7 +24,7 @@
 ## Sneak Peek
 
 <p align="center">
-  <img src="./docs/assets/dispatch-dashboard.png" alt="Dispatch dashboard screenshot" />
+  <img src="./docs/assets/dispatch-dashboard-latest.png" alt="Dispatch dashboard screenshot" />
 </p>
 
 <p align="center"><em>Clean dark UI, fast keyboard flow, project rollups, deadline focus, and daily dispatch planning in one screen.</em></p>
