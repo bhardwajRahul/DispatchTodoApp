@@ -46,12 +46,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionsTable: sessions,
   }),
   providers,
-  session: {
-    strategy: providers.some((p) => p === GitHub) ? "database" : "jwt",
-  },
+  // Always use JWT — the adapter still persists users/accounts on OAuth sign-in,
+  // but JWT avoids the incompatibility between Credentials provider and database sessions.
+  session: { strategy: "jwt" },
   callbacks: {
-    jwt({ token, user }) {
-      if (user?.id) token.sub = user.id;
+    async signIn({ user, account }) {
+      // Block sign-in if the user record wasn't created (shouldn't happen, but guard)
+      if (!user?.id) return false;
+
+      // For OAuth providers, check if this provider account is already linked to a different user.
+      // The adapter handles linking automatically, but this guards against edge cases.
+      if (account?.provider && account.provider !== "credentials") {
+        const existing = await db
+          .select()
+          .from(accounts)
+          .where(eq(accounts.providerAccountId, account.providerAccountId))
+          .limit(1);
+        if (existing.length > 0 && existing[0].userId !== user.id) {
+          // This GitHub account is already linked to another user — reject
+          return false;
+        }
+      }
+
+      return true;
+    },
+    jwt({ token, user, account }) {
+      // On initial sign-in, persist user id and provider info into the JWT
+      if (user?.id) {
+        token.sub = user.id;
+        token.name = user.name;
+        token.email = user.email;
+        token.picture = user.image;
+      }
+      if (account) {
+        token.provider = account.provider;
+      }
       return token;
     },
     session({ session, token }) {

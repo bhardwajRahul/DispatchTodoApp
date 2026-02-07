@@ -2,14 +2,26 @@ import { signIn } from "@/auth";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const session = await auth();
   if (session?.user) {
     redirect("/");
   }
 
+  const { error } = await searchParams;
   const hasGitHub = !!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET);
   const isDev = process.env.NODE_ENV === "development";
+
+  const errorMessages: Record<string, string> = {
+    OAuthAccountNotLinked: "This GitHub account is already linked to a different user.",
+    OAuthCallbackError: "GitHub sign-in was cancelled or failed.",
+    AccessDenied: "Access denied. Sign-in was rejected.",
+    Default: "Something went wrong. Please try again.",
+  };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -18,6 +30,11 @@ export default async function LoginPage() {
           <h1 className="text-3xl font-bold tracking-tight dark:text-white">Dispatch</h1>
           <p className="mt-2 text-gray-500 dark:text-gray-400">Sign in to continue</p>
         </div>
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+            {errorMessages[error] || errorMessages.Default}
+          </div>
+        )}
         {hasGitHub && (
           <form
             action={async () => {

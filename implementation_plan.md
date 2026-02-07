@@ -80,11 +80,11 @@ Harden the app and add cross-cutting features that make daily use pleasant.
 
 Fix the authentication flow so GitHub OAuth works end-to-end. Currently only a local/test account is available.
 
-- [ ] **6.1** Verify GitHub OAuth App settings (callback URL, client ID/secret) are correctly configured in `.env.local`.
-- [ ] **6.2** Debug and fix the NextAuth.js GitHub provider flow — ensure the OAuth redirect, callback, and session creation all work.
-- [ ] **6.3** Ensure new GitHub users are persisted to the `users` and `accounts` tables on first sign-in.
-- [ ] **6.4** Test the full login → session → protected routes → sign-out cycle with a real GitHub account.
-- [ ] **6.5** Handle edge cases: expired sessions, revoked tokens, duplicate account linking.
+- [x] **6.1** Verify GitHub OAuth App settings (callback URL, client ID/secret) are correctly configured in `.env.local`.
+- [x] **6.2** Debug and fix the NextAuth.js GitHub provider flow — ensure the OAuth redirect, callback, and session creation all work.
+- [x] **6.3** Ensure new GitHub users are persisted to the `users` and `accounts` tables on first sign-in.
+- [x] **6.4** Test the full login → session → protected routes → sign-out cycle with a real GitHub account.
+- [x] **6.5** Handle edge cases: expired sessions, revoked tokens, duplicate account linking.
 
 ## Phase 7: Theme Overhaul — True Dark Mode
 
