@@ -126,10 +126,10 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-2xl rounded-xl bg-white dark:bg-gray-800 shadow-2xl mx-4 overflow-hidden">
+      <div className="relative w-full max-w-2xl rounded-xl bg-white dark:bg-neutral-900 shadow-2xl mx-4 overflow-hidden">
         {/* Search input */}
-        <div className="flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-          <IconSearch className="w-5 h-5 text-gray-400 flex-shrink-0" />
+        <div className="flex items-center gap-3 border-b border-neutral-200 dark:border-neutral-800 px-4 py-3">
+          <IconSearch className="w-5 h-5 text-neutral-400 flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -137,9 +137,9 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search tasks, notes, dispatches..."
-            className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none"
+            className="flex-1 bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 outline-none"
           />
-          <kbd className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 rounded px-1.5 py-0.5">
+          <kbd className="text-xs text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 rounded px-1.5 py-0.5">
             ESC
           </kbd>
         </div>
@@ -147,13 +147,13 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
         {/* Results */}
         <div className="max-h-[50vh] overflow-y-auto">
           {loading && (
-            <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+            <div className="px-4 py-6 text-center text-sm text-neutral-400 dark:text-neutral-500">
               Searching...
             </div>
           )}
 
           {!loading && hasQuery && !hasResults && (
-            <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+            <div className="px-4 py-6 text-center text-sm text-neutral-400 dark:text-neutral-500">
               No results found for &ldquo;{query}&rdquo;
             </div>
           )}
@@ -191,7 +191,7 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
           )}
 
           {!loading && !hasQuery && (
-            <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+            <div className="px-4 py-6 text-center text-sm text-neutral-400 dark:text-neutral-500">
               Start typing to search across all your data
             </div>
           )}
@@ -216,7 +216,7 @@ function ResultSection({
 }) {
   return (
     <div>
-      <p className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+      <p className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         {label}
       </p>
       {items.map((item) => {
@@ -228,17 +228,17 @@ function ResultSection({
             onClick={() => onSelect(item)}
             className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
               isSelected
-                ? "bg-gray-100 dark:bg-gray-700"
-                : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                ? "bg-neutral-100 dark:bg-neutral-800"
+                : "hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
             }`}
           >
             <TypeBadge type={item.type} />
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-900 dark:text-white truncate">
+              <p className="font-medium text-neutral-900 dark:text-white truncate">
                 {item.title}
               </p>
               {item.subtitle && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
                   {item.subtitle}
                 </p>
               )}

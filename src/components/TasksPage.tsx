@@ -153,7 +153,7 @@ export function TasksPage() {
             setEditingTask(null);
             setModalOpen(true);
           }}
-          className="rounded-lg bg-gray-900 dark:bg-gray-100 px-4 py-2 text-sm font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+          className="rounded-lg bg-neutral-900 dark:bg-neutral-100 px-4 py-2 text-sm font-medium text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors"
         >
           New Task
         </button>
@@ -164,7 +164,7 @@ export function TasksPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as TaskStatus | "")}
-          className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm dark:text-gray-200"
+          className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm dark:text-neutral-200"
         >
           <option value="">All statuses</option>
           <option value="open">Open</option>
@@ -177,7 +177,7 @@ export function TasksPage() {
           onChange={(e) =>
             setPriorityFilter(e.target.value as TaskPriority | "")
           }
-          className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm dark:text-gray-200"
+          className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm dark:text-neutral-200"
         >
           <option value="">All priorities</option>
           <option value="high">High</option>
@@ -185,12 +185,12 @@ export function TasksPage() {
           <option value="low">Low</option>
         </select>
 
-        <div className="ml-auto flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+        <div className="ml-auto flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
           <span>Sort:</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortField)}
-            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm dark:text-gray-200"
+            className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm dark:text-neutral-200"
           >
             <option value="createdAt">Newest</option>
             <option value="dueDate">Due Date</option>
@@ -205,12 +205,12 @@ export function TasksPage() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-16 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700"
+              className="h-16 animate-pulse rounded-lg bg-neutral-200 dark:bg-neutral-800"
             />
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-12 text-center text-gray-400 dark:text-gray-500">
+        <div className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 p-12 text-center text-neutral-400 dark:text-neutral-500">
           No tasks found.{" "}
           <button
             onClick={() => {
@@ -266,7 +266,7 @@ const STATUS_STYLES: Record<TaskStatus, { dot: string; label: string }> = {
 const PRIORITY_BADGE: Record<TaskPriority, string> = {
   high: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
-  low: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+  low: "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400",
 };
 
 function TaskRow({
@@ -282,10 +282,10 @@ function TaskRow({
 }) {
   return (
     <li
-      className={`flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-800 p-4 transition-colors ${
+      className={`flex items-center gap-3 rounded-lg border bg-white dark:bg-neutral-900 p-4 transition-colors ${
         task.status === "done"
-          ? "border-gray-100 dark:border-gray-700 opacity-60"
-          : "border-gray-200 dark:border-gray-700"
+          ? "border-neutral-100 dark:border-neutral-800 opacity-60"
+          : "border-neutral-200 dark:border-neutral-800"
       }`}
     >
       <button
@@ -305,7 +305,7 @@ function TaskRow({
           {task.title}
         </p>
         {task.description && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
             {task.description}
           </p>
         )}
@@ -318,14 +318,14 @@ function TaskRow({
       </span>
 
       {task.dueDate && (
-        <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+        <span className="text-xs text-neutral-400 dark:text-neutral-500 whitespace-nowrap">
           {task.dueDate}
         </span>
       )}
 
       <button
         onClick={onEdit}
-        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+        className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
       >
         Edit
       </button>

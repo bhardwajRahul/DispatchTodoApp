@@ -90,10 +90,57 @@ Fix the authentication flow so GitHub OAuth works end-to-end. Currently only a l
 
 Replace the current navy-tinted dark theme with a deeper, true-dark palette for better contrast and a more modern aesthetic.
 
-- [ ] **7.1** Audit all dark mode color values across components — replace `gray-800`/`gray-900`/`gray-950` navy tones with neutral/zinc/stone equivalents or true blacks.
-- [ ] **7.2** Update the sidebar palette — shift from `bg-gray-950` to a deeper neutral dark (`bg-neutral-950` or `bg-zinc-950`).
-- [ ] **7.3** Update the main content area background — make `dark:bg-gray-900` darker and more neutral.
-- [ ] **7.4** Update cards, inputs, modals, and overlays to use the new darker palette consistently.
-- [ ] **7.5** Adjust text contrast ratios — ensure all text meets WCAG AA on the new darker backgrounds.
-- [ ] **7.6** Update the search overlay, toast notifications, and shortcut help modal to match the new palette.
-- [ ] **7.7** Visual verification — screenshot every page in both themes and confirm consistent look.
+- [x] **7.1** Audit all dark mode color values across components — replace `gray-800`/`gray-900`/`gray-950` navy tones with neutral/zinc/stone equivalents or true blacks.
+- [x] **7.2** Update the sidebar palette — shift from `bg-gray-950` to a deeper neutral dark (`bg-neutral-950` or `bg-zinc-950`).
+- [x] **7.3** Update the main content area background — make `dark:bg-gray-900` darker and more neutral.
+- [x] **7.4** Update cards, inputs, modals, and overlays to use the new darker palette consistently.
+- [x] **7.5** Adjust text contrast ratios — ensure all text meets WCAG AA on the new darker backgrounds.
+- [x] **7.6** Update the search overlay, toast notifications, and shortcut help modal to match the new palette.
+- [x] **7.7** Visual verification — screenshot every page in both themes and confirm consistent look.
+
+## Phase 8: UI Enhancement — Animations, Hover States & Visual Density
+
+Upgrade the entire interface from functional-minimal to polished and interactive. Replace plain text and basic controls with richer UI elements, add motion throughout, and make every page feel full and intentional.
+
+### 8A — Global Animations & Transitions
+
+- [ ] **8.1** Add modal enter/exit animations — fade + scale-up for TaskModal, ShortcutHelpOverlay; slide-down + fade for SearchOverlay. Use CSS `@keyframes` and Tailwind `animate-*` utilities.
+- [ ] **8.2** Add page/section mount animations — staggered fade-in-up for list items (task rows, note cards, dispatch tasks) so content cascades in rather than appearing all at once.
+- [ ] **8.3** Animate task status changes — when a status dot is clicked, pulse/ring-expand the dot and briefly highlight the row with a color wash before settling.
+- [ ] **8.4** Add smooth height transitions for collapsible sections — the dispatch "Add Tasks" picker, filter panels, and any expandable content should animate open/closed rather than toggling instantly.
+- [ ] **8.5** Animate the theme toggle — cross-fade or rotate the Sun/Moon icon on switch, and apply a brief full-page opacity transition so the theme change feels intentional.
+- [ ] **8.6** Add delete confirmation animations — when a delete button is clicked, slide the item out or fade-to-red before removal rather than instantly vanishing.
+- [ ] **8.7** Add button press feedback — subtle scale-down (`active:scale-95`) on all clickable buttons and interactive cards so clicks feel tactile.
+
+### 8B — Hover States & Micro-Interactions
+
+- [ ] **8.8** Enhance task row hovers — on hover, lift the row slightly (`hover:-translate-y-px`), add a subtle shadow, and reveal action buttons (Edit / Delete) that are hidden at rest.
+- [ ] **8.9** Enhance note card hovers — scale the card up slightly (`hover:scale-[1.02]`), deepen the shadow, and shift the border color. The delete button already reveals on hover; add a smooth fade for it.
+- [ ] **8.10** Add hover tooltips to icon-only elements — the sidebar collapse toggle, status dots, priority badges, and the theme toggle should show descriptive tooltips on hover.
+- [ ] **8.11** Enhance the "New Task" / "New Note" buttons — add an icon (+ symbol), give them a gradient or accent background, and add a hover glow/shadow effect so they stand out as primary actions.
+- [ ] **8.12** Add focus-visible rings to all interactive elements — inputs, buttons, links, and cards should show a visible `ring-2 ring-blue-500/50` outline on keyboard focus for accessibility.
+- [ ] **8.13** Enhance pagination controls — replace the plain Previous/Next text buttons with pill-shaped controls, add page number indicators between them, and show hover background fills.
+
+### 8C — Richer UI Controls
+
+- [ ] **8.14** Replace all native `<select>` dropdowns (status, priority, sort filters) with custom styled dropdown menus — rounded, with icons per option, smooth open/close animation, and keyboard navigation.
+- [ ] **8.15** Upgrade form inputs across TaskModal and the login page — add floating labels or inset labels, subtle inner shadows, and animated focus borders that expand from center.
+- [ ] **8.16** Replace the plain "Saving..." / "Saved" text in NoteEditor with an animated status indicator — a spinner while saving, a checkmark that fades in on save, auto-hiding after 2 seconds.
+- [ ] **8.17** Upgrade the login page — add a subtle background pattern or gradient, a card container with shadow and depth, and a loading spinner on the sign-in button during OAuth redirect.
+
+### 8D — Visual Density & Page Utilization
+
+- [ ] **8.18** Expand the Dashboard — add a "Quick Actions" row (large icon buttons for New Task, New Note, Open Dispatch, Search), a progress bar or ring showing today's task completion percentage, and a "Recent Activity" timeline beneath the existing two-column section.
+- [ ] **8.19** Enhance the empty states — replace plain text with illustrated empty states (SVG illustrations or large icons) and clear call-to-action buttons, not just text links.
+- [ ] **8.20** Add card-based layouts with shadows and depth — task rows should live inside a unified card container with dividers between rows rather than floating as separate bordered boxes. Note cards should have drop shadows.
+- [ ] **8.21** Add header stats/badges to list pages — the Tasks page header should show inline counts (e.g., "12 open · 3 in progress · 8 done") and the Notes page should show total count. These should animate when values change.
+- [ ] **8.22** Improve the Dispatch page layout — give the Daily Summary and Tasks sections card-style containers with headers, add a visual timeline or progress indicator for the day, and make the "Complete Day" button more prominent with an icon and confirmation step.
+
+### 8E — Loading & Skeleton Polish
+
+- [ ] **8.23** Upgrade loading skeletons from simple pulsing boxes to shimmer/wave skeletons — a gradient sweep animation across placeholder shapes that more closely mirror the actual content layout (title lines, avatar circles, badge pills).
+- [ ] **8.24** Add loading spinners to async buttons — the "Save Summary", "Complete Day", "Create Task", and "Save Note" buttons should show an inline spinner and disable during their API call, then animate to a success state.
+
+### 8F — Visual Verification
+
+- [ ] **8.25** Screenshot every page in both themes and verify: animations are smooth, hover states are consistent, page space is well-utilized, no layout shifts or visual regressions.

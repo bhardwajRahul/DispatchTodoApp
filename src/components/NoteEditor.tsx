@@ -67,8 +67,8 @@ export function NoteEditor({ noteId }: { noteId: string }) {
     return (
       <div className="mx-auto max-w-4xl p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-64 rounded bg-gray-200 dark:bg-gray-700" />
-          <div className="h-96 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-8 w-64 rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div className="h-96 rounded bg-neutral-200 dark:bg-neutral-800" />
         </div>
       </div>
     );
@@ -78,7 +78,7 @@ export function NoteEditor({ noteId }: { noteId: string }) {
     return (
       <div className="mx-auto max-w-4xl p-6 text-center">
         <h1 className="text-2xl font-bold dark:text-white">Note not found</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">
+        <p className="text-neutral-500 dark:text-neutral-400 mt-2">
           This note may have been deleted.{" "}
           <button
             onClick={() => router.push("/notes")}
@@ -97,20 +97,20 @@ export function NoteEditor({ noteId }: { noteId: string }) {
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.push("/notes")}
-          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
         >
           &larr; Back to notes
         </button>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-neutral-400 dark:text-neutral-500">
             {saving ? "Saving..." : "Saved"}
           </span>
           <button
             onClick={() => setShowPreview(!showPreview)}
             className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
               showPreview
-                ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
-                : "border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
+                : "border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             }`}
           >
             {showPreview ? "Edit" : "Preview"}
@@ -130,16 +130,16 @@ export function NoteEditor({ noteId }: { noteId: string }) {
         value={title}
         onChange={(e) => handleChange(e.target.value, content)}
         placeholder="Note title..."
-        className="w-full text-2xl font-bold border-none outline-none bg-transparent dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600"
+        className="w-full text-2xl font-bold border-none outline-none bg-transparent dark:text-white placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
       />
 
       {/* Editor / Preview */}
       {showPreview ? (
-        <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 min-h-[400px]">
+        <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 min-h-[400px]">
           {content ? (
             <Markdown>{content}</Markdown>
           ) : (
-            <p className="text-gray-300 dark:text-gray-600 italic">Nothing to preview.</p>
+            <p className="text-neutral-300 dark:text-neutral-600 italic">Nothing to preview.</p>
           )}
         </div>
       ) : (
@@ -147,7 +147,7 @@ export function NoteEditor({ noteId }: { noteId: string }) {
           value={content}
           onChange={(e) => handleChange(title, e.target.value)}
           placeholder="Write your note in markdown..."
-          className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-sm font-mono dark:text-gray-200 min-h-[400px] resize-y focus:border-gray-900 dark:focus:border-gray-500 focus:outline-none"
+          className="w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-sm font-mono dark:text-neutral-200 min-h-[400px] resize-y focus:border-neutral-900 dark:focus:border-neutral-600 focus:outline-none"
         />
       )}
     </div>

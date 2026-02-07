@@ -162,9 +162,9 @@ export function DispatchPage() {
     return (
       <div className="mx-auto max-w-5xl p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-64 rounded bg-gray-200 dark:bg-gray-700" />
-          <div className="h-32 rounded-lg bg-gray-200 dark:bg-gray-700" />
-          <div className="h-48 rounded-lg bg-gray-200 dark:bg-gray-700" />
+          <div className="h-8 w-64 rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div className="h-32 rounded-lg bg-neutral-200 dark:bg-neutral-800" />
+          <div className="h-48 rounded-lg bg-neutral-200 dark:bg-neutral-800" />
         </div>
       </div>
     );
@@ -177,7 +177,7 @@ export function DispatchPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigateDay(-1)}
-            className="rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 transition-colors"
+            className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:text-neutral-300 transition-colors"
           >
             &larr;
           </button>
@@ -185,7 +185,7 @@ export function DispatchPage() {
             <h1 className="text-2xl font-bold dark:text-white">
               {isToday ? "Today's Dispatch" : "Dispatch"}
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">
               {new Date(date + "T00:00:00").toLocaleDateString("en-US", {
                 weekday: "long",
                 year: "numeric",
@@ -196,14 +196,14 @@ export function DispatchPage() {
           </div>
           <button
             onClick={() => navigateDay(1)}
-            className="rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 transition-colors"
+            className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:text-neutral-300 transition-colors"
           >
             &rarr;
           </button>
           {!isToday && (
             <button
               onClick={() => setDate(todayStr())}
-              className="rounded-lg bg-gray-100 dark:bg-gray-700 px-3 py-1 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-gray-200 transition-colors"
+              className="rounded-lg bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-sm font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700 dark:text-neutral-200 transition-colors"
             >
               Today
             </button>
@@ -218,10 +218,10 @@ export function DispatchPage() {
       </div>
 
       {/* Summary */}
-      <section className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Daily Summary</h2>
+      <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Daily Summary</h2>
         {dispatch?.finalized ? (
-          <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+          <p className="text-sm text-neutral-600 dark:text-neutral-300 whitespace-pre-wrap">
             {dispatch.summary || "No summary written."}
           </p>
         ) : (
@@ -231,13 +231,13 @@ export function DispatchPage() {
               onChange={(e) => setSummary(e.target.value)}
               placeholder="Write your daily summary, goals, or notes…"
               rows={4}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm dark:text-white focus:border-gray-900 dark:focus:border-gray-400 focus:outline-none resize-none"
+              className="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm dark:text-white focus:border-neutral-900 dark:focus:border-neutral-500 focus:outline-none resize-none"
             />
             <div className="flex justify-end">
               <button
                 onClick={handleSaveSummary}
                 disabled={saving}
-                className="rounded-lg bg-gray-900 dark:bg-gray-100 px-4 py-1.5 text-sm font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                className="rounded-lg bg-neutral-900 dark:bg-neutral-100 px-4 py-1.5 text-sm font-medium text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-50 transition-colors"
               >
                 {saving ? "Saving…" : "Save Summary"}
               </button>
@@ -250,7 +250,7 @@ export function DispatchPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold dark:text-white">Tasks</h2>
-          <span className="text-sm text-gray-400 dark:text-gray-500">
+          <span className="text-sm text-neutral-400 dark:text-neutral-500">
             {linkedTasks.filter((t) => t.status === "done").length}/{linkedTasks.length} done
           </span>
         </div>
@@ -304,7 +304,7 @@ export function DispatchPage() {
         )}
 
         {linkedTasks.length === 0 && (
-          <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">
+          <p className="text-sm text-neutral-400 dark:text-neutral-500 py-4 text-center">
             No tasks linked to this dispatch yet.
           </p>
         )}
@@ -312,21 +312,21 @@ export function DispatchPage() {
 
       {/* Add task picker */}
       {!dispatch?.finalized && availableTasks.length > 0 && (
-        <section className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 space-y-2">
-          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Link a task</h3>
+        <section className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 p-4 space-y-2">
+          <h3 className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Link a task</h3>
           <div className="max-h-48 overflow-y-auto space-y-1">
             {availableTasks.map((task) => (
               <button
                 key={task.id}
                 onClick={() => handleLinkTask(task.id)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 transition-colors"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 dark:text-neutral-300 transition-colors"
               >
                 <span
                   className={`block h-2.5 w-2.5 rounded-full flex-shrink-0 ${STATUS_STYLES[task.status].dot}`}
                 />
                 <span className="flex-1 truncate">{task.title}</span>
                 {task.dueDate && (
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{task.dueDate}</span>
+                  <span className="text-xs text-neutral-400 dark:text-neutral-500">{task.dueDate}</span>
                 )}
               </button>
             ))}
@@ -365,10 +365,10 @@ function LinkedTaskRow({
 }) {
   return (
     <li
-      className={`flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-800 p-3 transition-colors ${
+      className={`flex items-center gap-3 rounded-lg border bg-white dark:bg-neutral-900 p-3 transition-colors ${
         task.status === "done"
-          ? "border-gray-100 dark:border-gray-700 opacity-60"
-          : "border-gray-200 dark:border-gray-700"
+          ? "border-neutral-100 dark:border-neutral-800 opacity-60"
+          : "border-neutral-200 dark:border-neutral-800"
       }`}
     >
       <button
@@ -389,14 +389,14 @@ function LinkedTaskRow({
           {task.title}
         </p>
         {task.description && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
             {task.description}
           </p>
         )}
       </div>
 
       {task.dueDate && (
-        <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+        <span className="text-xs text-neutral-400 dark:text-neutral-500 whitespace-nowrap">
           {task.dueDate}
         </span>
       )}
@@ -404,7 +404,7 @@ function LinkedTaskRow({
       {!finalized && (
         <button
           onClick={onUnlink}
-          className="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+          className="text-xs text-neutral-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
           title="Remove from dispatch"
         >
           Remove

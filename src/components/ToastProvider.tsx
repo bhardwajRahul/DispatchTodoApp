@@ -63,7 +63,7 @@ export function useToast() {
 const VARIANT_STYLES: Record<ToastVariant, string> = {
   success: "bg-green-600 text-white",
   error: "bg-red-600 text-white",
-  info: "bg-gray-800 text-white",
+  info: "bg-neutral-900 text-white",
 };
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {

@@ -22,7 +22,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <body className="antialiased bg-neutral-50 dark:bg-neutral-950 min-h-screen">
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>

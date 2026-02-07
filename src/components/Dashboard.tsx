@@ -42,10 +42,10 @@ export function Dashboard({ userName }: { userName: string }) {
     return (
       <div className="mx-auto max-w-5xl p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-8 w-48 rounded bg-neutral-200 dark:bg-neutral-800" />
           <div className="grid grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 rounded-lg bg-gray-200 dark:bg-gray-700" />
+              <div key={i} className="h-24 rounded-lg bg-neutral-200 dark:bg-neutral-800" />
             ))}
           </div>
         </div>
@@ -57,7 +57,7 @@ export function Dashboard({ userName }: { userName: string }) {
     <div className="mx-auto max-w-5xl p-6 space-y-8">
       <div>
         <h1 className="text-2xl font-bold dark:text-white">Dashboard</h1>
-        <p className="mt-1 text-gray-500 dark:text-gray-400">Welcome back, {userName}.</p>
+        <p className="mt-1 text-neutral-500 dark:text-neutral-400">Welcome back, {userName}.</p>
       </div>
 
       {/* Stats */}
@@ -72,7 +72,7 @@ export function Dashboard({ userName }: { userName: string }) {
         <section>
           <h2 className="text-lg font-semibold mb-3 dark:text-white">Upcoming</h2>
           {overdue.length === 0 && dueToday.length === 0 && upcoming.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500">No upcoming deadlines.</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">No upcoming deadlines.</p>
           ) : (
             <ul className="space-y-2">
               {overdue.map((t) => (
@@ -97,17 +97,17 @@ export function Dashboard({ userName }: { userName: string }) {
             </Link>
           </div>
           {recentNotes.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500">No notes yet.</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">No notes yet.</p>
           ) : (
             <ul className="space-y-2">
               {recentNotes.map((n) => (
                 <li key={n.id}>
                   <Link
                     href={`/notes/${n.id}`}
-                    className="block rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+                    className="block rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
                   >
                     <p className="font-medium text-sm truncate dark:text-white">{n.title}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
                       {new Date(n.updatedAt).toLocaleDateString()}
                     </p>
                   </Link>
@@ -162,10 +162,10 @@ function DueItem({
     yellow: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
   };
   return (
-    <li className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+    <li className="flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate dark:text-white">{task.title}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-neutral-400 dark:text-neutral-500">
           Due {task.dueDate}
         </p>
       </div>

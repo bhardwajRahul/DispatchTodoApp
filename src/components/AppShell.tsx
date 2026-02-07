@@ -15,8 +15,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Show nothing while loading session to avoid layout flash
   if (status === "loading") {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="h-8 w-8 animate-pulse rounded-full bg-gray-300 dark:bg-gray-700" />
+      <div className="flex h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+        <div className="h-8 w-8 animate-pulse rounded-full bg-neutral-300 dark:bg-neutral-800" />
       </div>
     );
   }
@@ -33,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onShortcutHelp={() => setShortcutHelpOpen(true)}
       />
       <Sidebar onSearchOpen={() => setSearchOpen(true)} />
-      <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <main className="flex-1 overflow-y-auto bg-neutral-50 dark:bg-neutral-950">
         {children}
       </main>
       {searchOpen && (
