@@ -167,6 +167,13 @@ export function TasksPage() {
     router.replace(`/tasks${qs ? "?" + qs : ""}`, { scroll: false });
   }, [searchParams, router]);
 
+  // Showing only done tasks should always reveal completed rows.
+  useEffect(() => {
+    if (statusFilter === "done") {
+      setShowCompleted(true);
+    }
+  }, [statusFilter]);
+
   const filteredTasks = showCompleted
     ? tasks
     : tasks.filter((task) => task.status !== "done" || completingIds.includes(task.id));
@@ -372,66 +379,83 @@ export function TasksPage() {
       {/* Filters & sort */}
       <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <FilterGroup
-              label="Status"
-              value={statusFilter}
-              options={statusFilterOptions}
-              onChange={(v) => setStatusFilter(v as TaskStatus | "")}
-            />
-            <FilterGroup
-              label="Priority"
-              value={priorityFilter}
-              options={priorityFilterOptions}
-              onChange={(v) => setPriorityFilter(v as TaskPriority | "")}
-            />
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                Project
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                {projectOptions.map((option) => {
-                  const active = projectFilter === option.value;
-                  return (
-                    <button
-                      key={`project-${option.value || "all"}`}
-                      type="button"
-                      onClick={() => setProjectFilter(option.value)}
-                      title={option.label}
-                      aria-pressed={active}
-                      className={`group inline-flex items-center gap-0 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
-                        active
-                          ? "border-neutral-300 dark:border-neutral-600 bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 shadow-sm"
-                          : "border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600"
-                      }`}
-                    >
-                      <span className={`h-2.5 w-2.5 rounded-full ${option.dot ?? "bg-neutral-400"}`} />
-                      <span
-                        className={`whitespace-nowrap overflow-hidden transition-[max-width,opacity,transform,margin] duration-200 ease-out ${
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                  Project
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {projectOptions.map((option) => {
+                    const active = projectFilter === option.value;
+                    return (
+                      <button
+                        key={`project-${option.value || "all"}`}
+                        type="button"
+                        onClick={() => setProjectFilter(option.value)}
+                        title={option.label}
+                        aria-pressed={active}
+                        className={`group inline-flex items-center gap-0 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
                           active
-                            ? "ml-2 max-w-[12rem] opacity-100 translate-x-0"
-                            : "ml-0 max-w-0 opacity-0 -translate-x-1 group-hover:ml-2 group-hover:max-w-[12rem] group-hover:opacity-100 group-hover:translate-x-0"
+                            ? "border-neutral-300 dark:border-neutral-600 bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 shadow-sm"
+                            : "border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600"
                         }`}
                       >
-                        {option.label}
-                      </span>
-                    </button>
-                  );
-                })}
+                        <span className={`h-2.5 w-2.5 rounded-full ${option.dot ?? "bg-neutral-400"}`} />
+                        <span
+                          className={`whitespace-nowrap overflow-hidden transition-[max-width,opacity,transform,margin] duration-200 ease-out ${
+                            active
+                              ? "ml-2 max-w-[12rem] opacity-100 translate-x-0"
+                              : "ml-0 max-w-0 opacity-0 -translate-x-1 group-hover:ml-2 group-hover:max-w-[12rem] group-hover:opacity-100 group-hover:translate-x-0"
+                          }`}
+                        >
+                          {option.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-            {hasActiveFilters && (
-              <button
-                onClick={() => {
-                  setStatusFilter("");
-                  setPriorityFilter("");
-                  setProjectFilter("");
-                }}
-                className="rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-95"
-              >
-                Clear filters
-              </button>
-            )}
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <div className="flex items-center gap-2 shrink-0">
+                <FilterGroup
+                  label="Status"
+                  value={statusFilter}
+                  options={statusFilterOptions}
+                  onChange={(v) => setStatusFilter(v as TaskStatus | "")}
+                />
+                <FilterGroup
+                  label="Priority"
+                  value={priorityFilter}
+                  options={priorityFilterOptions}
+                  onChange={(v) => setPriorityFilter(v as TaskPriority | "")}
+                />
+              </div>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => {
+                    setStatusFilter("");
+                    setPriorityFilter("");
+                    setProjectFilter("");
+                  }}
+                  type="button"
+                  aria-label="Clear filters"
+                  title="Clear filters"
+                  className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-95"
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 5l10 10M15 5L5 15"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 md:justify-end">
@@ -584,11 +608,11 @@ function FilterGroup({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 shrink-0">
       <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         {label}
       </span>
-      <div className="inline-flex flex-wrap rounded-lg bg-neutral-100 dark:bg-neutral-800 p-1">
+      <div className="inline-flex flex-nowrap rounded-lg bg-neutral-100 dark:bg-neutral-800 p-1">
         {options.map((option) => {
           const active = value === option.value;
           return (
@@ -596,7 +620,7 @@ function FilterGroup({
               key={`${label}-${option.value || "all"}`}
               type="button"
               onClick={() => onChange(option.value)}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium transition-all ${
                 active
                   ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm"
                   : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
