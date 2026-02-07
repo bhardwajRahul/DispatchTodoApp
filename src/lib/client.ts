@@ -127,7 +127,18 @@ export class ApiError extends Error {
 
 // ---- Fetch wrapper ----
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStartupError(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    return error.status >= 500;
+  }
+  return error instanceof TypeError;
+}
+
+async function requestOnce<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     cache: "no-store",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -157,6 +168,28 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   return data as T;
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const method = (options?.method ?? "GET").toUpperCase();
+  const canRetryForDevStartup = process.env.NODE_ENV === "development" && method === "GET";
+  const maxAttempts = canRetryForDevStartup ? 6 : 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await requestOnce<T>(path, options);
+    } catch (error) {
+      const shouldRetry = canRetryForDevStartup && isRetryableStartupError(error) && attempt < maxAttempts;
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      const delayMs = attempt * 350;
+      await sleep(delayMs);
+    }
+  }
+
+  throw new ApiError("Request failed", 500);
 }
 
 function qs(params: Record<string, string | undefined>): string {
