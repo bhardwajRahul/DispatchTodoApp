@@ -306,7 +306,7 @@ export function TasksPage() {
                       onClick={() => setProjectFilter(option.value)}
                       title={option.label}
                       aria-pressed={active}
-                      className={`group inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
+                      className={`group inline-flex items-center gap-0 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
                         active
                           ? "border-neutral-300 dark:border-neutral-600 bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 shadow-sm"
                           : "border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600"
@@ -314,10 +314,10 @@ export function TasksPage() {
                     >
                       <span className={`h-2.5 w-2.5 rounded-full ${option.dot ?? "bg-neutral-400"}`} />
                       <span
-                        className={`whitespace-nowrap overflow-hidden transition-[max-width,opacity,transform] duration-200 ease-out ${
+                        className={`whitespace-nowrap overflow-hidden transition-[max-width,opacity,transform,margin] duration-200 ease-out ${
                           active
-                            ? "max-w-[12rem] opacity-100 translate-x-0"
-                            : "max-w-0 opacity-0 -translate-x-1 group-hover:max-w-[12rem] group-hover:opacity-100 group-hover:translate-x-0"
+                            ? "ml-2 max-w-[12rem] opacity-100 translate-x-0"
+                            : "ml-0 max-w-0 opacity-0 -translate-x-1 group-hover:ml-2 group-hover:max-w-[12rem] group-hover:opacity-100 group-hover:translate-x-0"
                         }`}
                       >
                         {option.label}
