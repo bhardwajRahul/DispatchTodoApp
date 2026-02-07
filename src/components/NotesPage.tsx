@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, type Note } from "@/lib/client";
 import { Pagination } from "@/components/Pagination";
 import { useToast } from "@/components/ToastProvider";
-import { IconPlus, IconTrash } from "@/components/icons";
+import { IconGrid, IconList, IconPlus, IconTrash } from "@/components/icons";
 
 export function NotesPage() {
   const router = useRouter();
@@ -17,6 +17,8 @@ export function NotesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const fetchNotes = useCallback(async () => {
     setLoading(true);
@@ -63,6 +65,17 @@ export function NotesPage() {
     void handleCreate();
   }, [searchParams, router]);
 
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    function handleCancel(event: MouseEvent) {
+      const target = event.target as Element | null;
+      if (target?.closest("[data-note-delete]")) return;
+      setConfirmDeleteId(null);
+    }
+    document.addEventListener("mousedown", handleCancel);
+    return () => document.removeEventListener("mousedown", handleCancel);
+  }, [confirmDeleteId]);
+
   async function handleCreate() {
     try {
       const note = await api.notes.create({ title: "Untitled Note" });
@@ -73,6 +86,7 @@ export function NotesPage() {
   }
 
   async function handleDelete(id: string) {
+    setConfirmDeleteId(null);
     setDeletingId(id);
     setTimeout(async () => {
       const prev = notes;
@@ -113,29 +127,81 @@ export function NotesPage() {
       </div>
 
       {/* Search */}
-      <input
-        type="text"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search notes by title..."
-        className="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm dark:text-white focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none transition-colors"
-      />
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search notes by title..."
+          className="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm dark:text-white focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none transition-colors"
+        />
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            View
+          </span>
+          <div className="inline-flex rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              aria-pressed={viewMode === "grid"}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                viewMode === "grid"
+                  ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-sm"
+                  : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              }`}
+            >
+              <IconGrid className="w-4 h-4" />
+              Cards
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              aria-pressed={viewMode === "list"}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                viewMode === "list"
+                  ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-sm"
+                  : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              }`}
+            >
+              <IconList className="w-4 h-4" />
+              List
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Notes grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="rounded-xl p-4 space-y-3 border border-neutral-200 dark:border-neutral-800">
-              <div className="h-4 w-3/4 rounded skeleton-shimmer" />
-              <div className="space-y-1.5">
-                <div className="h-3 w-full rounded skeleton-shimmer" />
-                <div className="h-3 w-5/6 rounded skeleton-shimmer" />
-                <div className="h-3 w-2/3 rounded skeleton-shimmer" />
+        viewMode === "grid" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="rounded-xl p-4 space-y-3 border border-neutral-200 dark:border-neutral-800">
+                <div className="h-4 w-3/4 rounded skeleton-shimmer" />
+                <div className="space-y-1.5">
+                  <div className="h-3 w-full rounded skeleton-shimmer" />
+                  <div className="h-3 w-5/6 rounded skeleton-shimmer" />
+                  <div className="h-3 w-2/3 rounded skeleton-shimmer" />
+                </div>
+                <div className="h-3 w-24 rounded skeleton-shimmer" />
               </div>
-              <div className="h-3 w-24 rounded skeleton-shimmer" />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className={`flex items-center gap-3 p-4 ${i > 1 ? "border-t border-neutral-100 dark:border-neutral-800/50" : ""}`}
+              >
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-48 rounded skeleton-shimmer" />
+                  <div className="h-3 w-2/3 rounded skeleton-shimmer" />
+                </div>
+                <div className="h-3 w-20 rounded skeleton-shimmer" />
+              </div>
+            ))}
+          </div>
+        )
       ) : sorted.length === 0 ? (
         <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-16 text-center">
           <svg className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
@@ -157,7 +223,7 @@ export function NotesPage() {
             </button>
           )}
         </div>
-      ) : (
+      ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sorted.map((note, i) => (
             <NoteCard
@@ -165,11 +231,28 @@ export function NotesPage() {
               note={note}
               index={i}
               isDeleting={deletingId === note.id}
+              confirmDelete={confirmDeleteId === note.id}
               onClick={() => router.push(`/notes/${note.id}`)}
-              onDelete={() => handleDelete(note.id)}
+              onRequestDelete={() => setConfirmDeleteId(note.id)}
+              onConfirmDelete={() => handleDelete(note.id)}
             />
           ))}
         </div>
+      ) : (
+        <ul className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden shadow-sm">
+          {sorted.map((note, i) => (
+            <NoteRow
+              key={note.id}
+              note={note}
+              index={i}
+              isDeleting={deletingId === note.id}
+              confirmDelete={confirmDeleteId === note.id}
+              onClick={() => router.push(`/notes/${note.id}`)}
+              onRequestDelete={() => setConfirmDeleteId(note.id)}
+              onConfirmDelete={() => handleDelete(note.id)}
+            />
+          ))}
+        </ul>
       )}
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -177,18 +260,86 @@ export function NotesPage() {
   );
 }
 
-function NoteCard({
+function NoteRow({
   note,
   index,
   isDeleting,
+  confirmDelete,
   onClick,
-  onDelete,
+  onRequestDelete,
+  onConfirmDelete,
 }: {
   note: Note;
   index: number;
   isDeleting: boolean;
+  confirmDelete: boolean;
   onClick: () => void;
-  onDelete: () => void;
+  onRequestDelete: () => void;
+  onConfirmDelete: () => void;
+}) {
+  return (
+    <li
+      className={`group flex items-center gap-3 px-4 py-3 transition-all duration-200 ${
+        index > 0 ? "border-t border-neutral-100 dark:border-neutral-800/50" : ""
+      } ${isDeleting ? "animate-slide-out-right overflow-hidden" : ""} hover:bg-neutral-50 dark:hover:bg-neutral-800/30`}
+      style={{ listStyle: "none" }}
+      onClick={onClick}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate dark:text-white">{note.title}</p>
+        {note.content && (
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
+            {note.content}
+          </p>
+        )}
+      </div>
+      <span className="text-xs text-neutral-300 dark:text-neutral-600 whitespace-nowrap">
+        {new Date(note.updatedAt).toLocaleDateString()}
+      </span>
+      <div data-note-delete className="min-w-[72px] flex justify-end">
+        {confirmDelete ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirmDelete();
+            }}
+            className="rounded-md px-2 py-1 text-xs font-semibold text-red-600 dark:text-red-300 bg-red-50/80 dark:bg-red-900/30 hover:bg-red-100/80 dark:hover:bg-red-900/50 transition-colors"
+          >
+            Confirm
+          </button>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRequestDelete();
+            }}
+            className="rounded-md p-1.5 text-neutral-300 dark:text-neutral-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-colors"
+            title="Delete note"
+          >
+            <IconTrash className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function NoteCard({
+  note,
+  index,
+  isDeleting,
+  confirmDelete,
+  onClick,
+  onRequestDelete,
+  onConfirmDelete,
+}: {
+  note: Note;
+  index: number;
+  isDeleting: boolean;
+  confirmDelete: boolean;
+  onClick: () => void;
+  onRequestDelete: () => void;
+  onConfirmDelete: () => void;
 }) {
   return (
     <div
@@ -198,16 +349,30 @@ function NoteCard({
       style={{ animationDelay: isDeleting ? "0ms" : `${index * 50}ms` }}
       onClick={onClick}
     >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="absolute top-2 right-2 rounded-md p-1.5 text-neutral-300 dark:text-neutral-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all active:scale-95"
-        title="Delete note"
-      >
-        <IconTrash className="w-3.5 h-3.5" />
-      </button>
+      <div className="absolute top-2 right-2" data-note-delete>
+        {confirmDelete ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirmDelete();
+            }}
+            className="rounded-md px-2 py-1 text-xs font-semibold text-red-600 dark:text-red-300 bg-red-50/80 dark:bg-red-900/30 hover:bg-red-100/80 dark:hover:bg-red-900/50 transition-colors"
+          >
+            Confirm
+          </button>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRequestDelete();
+            }}
+            className="rounded-md p-1.5 text-neutral-300 dark:text-neutral-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-colors"
+            title="Delete note"
+          >
+            <IconTrash className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
       <h3 className="font-medium text-sm truncate dark:text-white">{note.title}</h3>
       {note.content && (
         <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 line-clamp-3">{note.content}</p>

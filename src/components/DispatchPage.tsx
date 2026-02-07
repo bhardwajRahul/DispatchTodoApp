@@ -8,7 +8,14 @@ import {
   type TaskStatus,
 } from "@/lib/client";
 import { useToast } from "@/components/ToastProvider";
-import { IconCheck, IconPlus } from "@/components/icons";
+import {
+  IconCalendar,
+  IconCheck,
+  IconCheckCircle,
+  IconDocument,
+  IconPlus,
+  IconSearch,
+} from "@/components/icons";
 
 const STATUS_STYLES: Record<TaskStatus, { dot: string; label: string; ring: string }> = {
   open: { dot: "bg-blue-500", label: "Open", ring: "text-blue-500" },
@@ -34,6 +41,7 @@ export function DispatchPage() {
   const [completing, setCompleting] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
   const [showAddTasks, setShowAddTasks] = useState(false);
+  const [taskSearch, setTaskSearch] = useState("");
 
   const fetchDispatch = useCallback(async () => {
     setLoading(true);
@@ -76,6 +84,10 @@ export function DispatchPage() {
     const timer = setTimeout(() => setConfirmComplete(false), 3500);
     return () => clearTimeout(timer);
   }, [confirmComplete]);
+
+  useEffect(() => {
+    setTaskSearch("");
+  }, [date]);
 
   async function handleSaveSummary() {
     if (!dispatch) return;
@@ -177,6 +189,18 @@ export function DispatchPage() {
   const availableTasks = allTasks.filter(
     (t) => !linkedIds.has(t.id) && t.status !== "done",
   );
+  const normalizedSearch = taskSearch.trim().toLowerCase();
+  const filteredAvailableTasks = availableTasks.filter((task) => {
+    if (!normalizedSearch) return true;
+    const haystack = [
+      task.title,
+      task.description ?? "",
+      task.dueDate ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(normalizedSearch);
+  });
 
   const overdueTasks = linkedTasks.filter(
     (t) => t.dueDate && t.dueDate < date && t.status !== "done",
@@ -273,6 +297,68 @@ export function DispatchPage() {
           </div>
         </div>
       )}
+
+      {/* Description */}
+      <section
+        className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-950 shadow-sm overflow-hidden animate-fade-in-up"
+        style={{ animationDelay: "75ms" }}
+      >
+        <div className="p-5 md:p-6 grid gap-6 md:grid-cols-[1.2fr_1fr]">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 dark:text-blue-300">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20">
+                <IconCalendar className="w-4 h-4" />
+              </span>
+              Daily Dispatch
+            </div>
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
+              A focused snapshot of your day
+            </h2>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">
+              Dispatches combine the tasks you plan to tackle with a short daily summary,
+              giving you a single place to plan, track, and close out the day.
+            </p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">
+              Link tasks, jot down outcomes, and complete the day to roll unfinished work
+              forward automatically.
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/80 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              How to use Dispatch
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 rounded-lg border border-neutral-200/60 dark:border-neutral-800/80 bg-white dark:bg-neutral-900 px-3 py-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                  <IconSearch className="w-4 h-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">Search & link tasks</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Pick what matters today.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-neutral-200/60 dark:border-neutral-800/80 bg-white dark:bg-neutral-900 px-3 py-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                  <IconDocument className="w-4 h-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">Write a quick summary</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Capture goals and outcomes.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-neutral-200/60 dark:border-neutral-800/80 bg-white dark:bg-neutral-900 px-3 py-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300">
+                  <IconCheckCircle className="w-4 h-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">Complete the day</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Unfinished tasks roll forward.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Summary */}
       <section className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden shadow-sm animate-fade-in-up" style={{ animationDelay: "100ms" }}>
@@ -397,27 +483,57 @@ export function DispatchPage() {
           </button>
           <div
             className={`overflow-hidden transition-all duration-300 ease-in-out ${
-              showAddTasks ? "max-h-64 mt-3 opacity-100" : "max-h-0 opacity-0"
+              showAddTasks ? "max-h-80 mt-3 opacity-100" : "max-h-0 opacity-0"
             }`}
           >
             <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 overflow-hidden">
+              <div className="border-b border-neutral-200/70 dark:border-neutral-800/70 bg-neutral-50/80 dark:bg-neutral-900/60 px-3 py-2.5">
+                <div className="relative">
+                  <IconSearch className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    value={taskSearch}
+                    onChange={(e) => setTaskSearch(e.target.value)}
+                    placeholder="Search tasks to link..."
+                    className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 py-2 pl-9 pr-10 text-sm text-neutral-700 dark:text-neutral-200 placeholder:text-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 transition-shadow"
+                    aria-label="Search tasks to link"
+                  />
+                  {taskSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setTaskSearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  Showing {filteredAvailableTasks.length} of {availableTasks.length} available tasks
+                </p>
+              </div>
               <div className="max-h-48 overflow-y-auto">
-                {availableTasks.map((task) => (
-                  <button
-                    key={task.id}
-                    onClick={() => handleLinkTask(task.id)}
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/30 dark:text-neutral-300 transition-colors border-b border-neutral-100 dark:border-neutral-800/50 last:border-0"
-                  >
-                    <span
-                      className={`block h-2.5 w-2.5 rounded-full flex-shrink-0 ${STATUS_STYLES[task.status].dot}`}
-                    />
-                    <span className="flex-1 truncate">{task.title}</span>
-                    {task.dueDate && (
-                      <span className="text-xs text-neutral-400 dark:text-neutral-500">{task.dueDate}</span>
-                    )}
-                    <IconPlus className="w-3.5 h-3.5 text-neutral-400" />
-                  </button>
-                ))}
+                {filteredAvailableTasks.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-neutral-400 dark:text-neutral-500">
+                    No tasks match your search.
+                  </div>
+                ) : (
+                  filteredAvailableTasks.map((task) => (
+                    <button
+                      key={task.id}
+                      onClick={() => handleLinkTask(task.id)}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/30 dark:text-neutral-300 transition-colors border-b border-neutral-100 dark:border-neutral-800/50 last:border-0"
+                    >
+                      <span
+                        className={`block h-2.5 w-2.5 rounded-full flex-shrink-0 ${STATUS_STYLES[task.status].dot}`}
+                      />
+                      <span className="flex-1 truncate">{task.title}</span>
+                      {task.dueDate && (
+                        <span className="text-xs text-neutral-400 dark:text-neutral-500">{task.dueDate}</span>
+                      )}
+                      <IconPlus className="w-3.5 h-3.5 text-neutral-400" />
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>

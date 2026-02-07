@@ -153,6 +153,8 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
       onClick: onSearchOpen,
     },
   ];
+  const quickActionClassName =
+    "flex h-9 w-9 items-center justify-center rounded-lg border border-blue-500/40 bg-blue-500/20 text-blue-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)] hover:bg-blue-500/30 hover:border-blue-400/60 hover:text-white transition-all active:scale-[0.97] flex-shrink-0";
 
   return (
     <aside
@@ -211,7 +213,7 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
                       onClick={action.onClick}
                       title={action.label}
                       aria-label={action.label}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700/70 bg-neutral-900/50 text-neutral-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:bg-neutral-800/80 hover:text-white transition-all active:scale-[0.97] flex-shrink-0"
+                      className={quickActionClassName}
                     >
                       <ActionIcon className="w-4 h-4 flex-shrink-0" />
                     </button>

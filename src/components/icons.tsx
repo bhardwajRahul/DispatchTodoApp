@@ -6,6 +6,14 @@ export function IconGrid({ className = "w-5 h-5" }: { className?: string }) {
   );
 }
 
+export function IconList({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12M8.25 17.25h12M4.5 6.75h.008M4.5 12h.008M4.5 17.25h.008" />
+    </svg>
+  );
+}
+
 export function IconCalendar({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

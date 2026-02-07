@@ -1,6 +1,6 @@
 import { withAuth, jsonResponse, errorResponse } from "@/lib/api";
 import { db } from "@/db";
-import { tasks, notes, dispatches } from "@/db/schema";
+import { tasks, notes, dispatches, projects } from "@/db/schema";
 import { eq, and, or, like, sql } from "drizzle-orm";
 
 const MAX_PER_CATEGORY = 10;
@@ -9,7 +9,7 @@ function escapeLike(str: string): string {
   return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
-/** GET /api/search?q=<query> — search across tasks, notes, and dispatches */
+/** GET /api/search?q=<query> — search across tasks, notes, dispatches, and projects */
 export const GET = withAuth(async (req, session) => {
   const url = new URL(req.url);
   const q = url.searchParams.get("q")?.trim();
@@ -25,7 +25,7 @@ export const GET = withAuth(async (req, session) => {
   const userId = session.user!.id!;
   const pattern = `%${escapeLike(q.toLowerCase())}%`;
 
-  const [matchedTasks, matchedNotes, matchedDispatches] = await Promise.all([
+  const [matchedTasks, matchedNotes, matchedDispatches, matchedProjects] = await Promise.all([
     db
       .select()
       .from(tasks)
@@ -64,11 +64,26 @@ export const GET = withAuth(async (req, session) => {
         ),
       )
       .limit(MAX_PER_CATEGORY),
+
+    db
+      .select()
+      .from(projects)
+      .where(
+        and(
+          eq(projects.userId, userId),
+          or(
+            like(sql`LOWER(${projects.name})`, pattern),
+            like(sql`LOWER(${projects.description})`, pattern),
+          ),
+        ),
+      )
+      .limit(MAX_PER_CATEGORY),
   ]);
 
   return jsonResponse({
     tasks: matchedTasks,
     notes: matchedNotes,
     dispatches: matchedDispatches,
+    projects: matchedProjects,
   });
 });

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mockSession } from "@/test/setup";
 import { createTestDb } from "@/test/db";
-import { users, tasks, notes, dispatches } from "@/db/schema";
+import { users, tasks, notes, dispatches, projects } from "@/db/schema";
 
 let testDb: ReturnType<typeof createTestDb>;
 
@@ -51,6 +51,15 @@ describe("Search API", () => {
       .values([
         { id: "d1", userId: TEST_USER.id, date: "2025-01-01", summary: "Worked on dashboard features", createdAt: now, updatedAt: now },
         { id: "d2", userId: OTHER_USER.id, date: "2025-01-01", summary: "Dashboard private work", createdAt: now, updatedAt: now },
+      ])
+      .run();
+
+    // Seed projects
+    testDb.db
+      .insert(projects)
+      .values([
+        { id: "p1", userId: TEST_USER.id, name: "Dashboard Revamp", description: "Polish and redesign", status: "active", color: "blue", createdAt: now, updatedAt: now },
+        { id: "p2", userId: OTHER_USER.id, name: "Dashboard Secret", description: "Private project", status: "active", color: "purple", createdAt: now, updatedAt: now },
       ])
       .run();
   });
@@ -112,6 +121,20 @@ describe("Search API", () => {
     expect(data.dispatches[0].id).toBe("d1");
   });
 
+  it("matches projects by name", async () => {
+    const res = await GET(new Request("http://localhost/api/search?q=revamp"), {});
+    const data = await res.json();
+    expect(data.projects).toHaveLength(1);
+    expect(data.projects[0].id).toBe("p1");
+  });
+
+  it("matches projects by description", async () => {
+    const res = await GET(new Request("http://localhost/api/search?q=redesign"), {});
+    const data = await res.json();
+    expect(data.projects).toHaveLength(1);
+    expect(data.projects[0].id).toBe("p1");
+  });
+
   it("search is case-insensitive", async () => {
     const res = await GET(new Request("http://localhost/api/search?q=DASHBOARD"), {});
     const data = await res.json();
@@ -125,6 +148,7 @@ describe("Search API", () => {
     expect(data.tasks.every((t: { userId: string }) => t.userId === TEST_USER.id)).toBe(true);
     expect(data.notes.every((n: { userId: string }) => n.userId === TEST_USER.id)).toBe(true);
     expect(data.dispatches.every((d: { userId: string }) => d.userId === TEST_USER.id)).toBe(true);
+    expect(data.projects.every((p: { userId: string }) => p.userId === TEST_USER.id)).toBe(true);
   });
 
   it("returns results from all categories", async () => {
@@ -133,5 +157,6 @@ describe("Search API", () => {
     expect(data.tasks.length).toBeGreaterThan(0);
     expect(data.notes.length).toBeGreaterThan(0);
     expect(data.dispatches.length).toBeGreaterThan(0);
+    expect(data.projects.length).toBeGreaterThan(0);
   });
 });

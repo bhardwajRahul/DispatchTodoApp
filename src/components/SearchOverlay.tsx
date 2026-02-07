@@ -12,7 +12,8 @@ interface SearchOverlayProps {
 type ResultItem =
   | { type: "task"; id: string; title: string; subtitle: string | null }
   | { type: "note"; id: string; title: string; subtitle: string | null }
-  | { type: "dispatch"; id: string; title: string; subtitle: string | null };
+  | { type: "dispatch"; id: string; title: string; subtitle: string | null }
+  | { type: "project"; id: string; title: string; subtitle: string | null };
 
 export function SearchOverlay({ onClose }: SearchOverlayProps) {
   const router = useRouter();
@@ -96,6 +97,14 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
         subtitle: dispatch.summary?.slice(0, 100) ?? null,
       });
     }
+    for (const project of results.projects) {
+      flatItems.push({
+        type: "project",
+        id: project.id,
+        title: project.name,
+        subtitle: project.description?.slice(0, 100) ?? null,
+      });
+    }
   }
 
   function navigateToItem(item: ResultItem) {
@@ -109,6 +118,9 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
         break;
       case "dispatch":
         router.push("/dispatch");
+        break;
+      case "project":
+        router.push(`/projects?projectId=${item.id}`);
         break;
     }
   }
@@ -142,7 +154,7 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search tasks, notes, dispatches..."
+            placeholder="Search tasks, notes, dispatches, projects..."
             className="flex-1 bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 outline-none"
           />
           <kbd className="text-xs text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 rounded px-1.5 py-0.5">
@@ -189,6 +201,15 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
                 <ResultSection
                   label="Dispatches"
                   items={flatItems.filter((i) => i.type === "dispatch")}
+                  allItems={flatItems}
+                  selectedIndex={selectedIndex}
+                  onSelect={navigateToItem}
+                />
+              )}
+              {results!.projects.length > 0 && (
+                <ResultSection
+                  label="Projects"
+                  items={flatItems.filter((i) => i.type === "project")}
                   allItems={flatItems}
                   selectedIndex={selectedIndex}
                   onSelect={navigateToItem}
@@ -264,8 +285,10 @@ function TypeBadge({ type }: { type: ResultItem["type"] }) {
     note: "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300",
     dispatch:
       "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300",
+    project:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   };
-  const labels = { task: "T", note: "N", dispatch: "D" };
+  const labels = { task: "T", note: "N", dispatch: "D", project: "P" };
 
   return (
     <span

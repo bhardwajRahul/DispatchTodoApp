@@ -68,6 +68,7 @@ export interface SearchResults {
   tasks: Task[];
   notes: Note[];
   dispatches: Dispatch[];
+  projects: Project[];
 }
 
 export interface PaginatedResponse<T> {
