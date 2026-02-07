@@ -18,7 +18,8 @@ export function createTestDb() {
       "name" text,
       "email" text,
       "emailVerified" integer,
-      "image" text
+      "image" text,
+      "password" text
     );
 
     CREATE UNIQUE INDEX IF NOT EXISTS "user_email_unique" ON "user" ("email");
@@ -51,6 +52,7 @@ export function createTestDb() {
       "description" text,
       "status" text NOT NULL DEFAULT 'active',
       "color" text NOT NULL DEFAULT 'blue',
+      "deletedAt" text,
       "createdAt" text NOT NULL DEFAULT (current_timestamp),
       "updatedAt" text NOT NULL DEFAULT (current_timestamp)
     );
@@ -67,6 +69,7 @@ export function createTestDb() {
       "status" text NOT NULL DEFAULT 'open',
       "priority" text NOT NULL DEFAULT 'medium',
       "dueDate" text,
+      "deletedAt" text,
       "createdAt" text NOT NULL DEFAULT (current_timestamp),
       "updatedAt" text NOT NULL DEFAULT (current_timestamp)
     );
@@ -81,6 +84,7 @@ export function createTestDb() {
       "userId" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
       "title" text NOT NULL,
       "content" text,
+      "deletedAt" text,
       "createdAt" text NOT NULL DEFAULT (current_timestamp),
       "updatedAt" text NOT NULL DEFAULT (current_timestamp)
     );

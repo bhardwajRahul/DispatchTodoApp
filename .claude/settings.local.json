@@ -23,7 +23,8 @@
       "Bash(npm run build:*)",
       "mcp__plugin_compound-engineering_context7__resolve-library-id",
       "mcp__chrome-devtools__press_key",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "mcp__chrome-devtools__get_console_message"
     ]
   }
 }

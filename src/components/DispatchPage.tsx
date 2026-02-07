@@ -55,7 +55,13 @@ export function DispatchPage() {
       let d = list[0] ?? null;
 
       if (!d) {
-        d = await api.dispatches.create({ date });
+        try {
+          d = await api.dispatches.create({ date });
+        } catch {
+          // Race condition (e.g. Strict Mode double-invoke) — re-fetch
+          const retry = await api.dispatches.list(date) as Dispatch[];
+          d = retry[0] ?? null;
+        }
       }
 
       setDispatch(d);
