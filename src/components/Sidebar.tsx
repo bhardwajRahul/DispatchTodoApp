@@ -172,30 +172,6 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
         </span>
       </div>
 
-      {/* Search trigger */}
-      <div className="px-3 pt-4 pb-2 flex-shrink-0">
-        <button
-          onClick={onSearchOpen}
-          className={`flex items-center gap-2 w-full rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 transition-all hover:border-neutral-700 hover:text-neutral-400 active:scale-95 ${
-            collapsed ? "px-2.5 py-2 justify-center" : "px-3 py-2"
-          }`}
-        >
-          <IconSearch className="w-4 h-4 flex-shrink-0" />
-          <span
-            className={`text-sm whitespace-nowrap transition-all duration-300 ${
-              collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-            }`}
-          >
-            Search...
-          </span>
-          {!collapsed && (
-            <kbd className="ml-auto text-xs text-neutral-600 bg-neutral-800 rounded px-1.5 py-0.5">
-              Ctrl+K
-            </kbd>
-          )}
-        </button>
-      </div>
-
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
         {/* Overview section */}
@@ -224,8 +200,26 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
 
           {(sectionsOpen.main || collapsed) && (
             <div className="space-y-3">
+              <div
+                className={`flex items-center justify-center gap-2 px-3 ${collapsed ? "pt-1 pb-2" : "pt-2 pb-1"}`}
+              >
+                {quickActions.map((action) => {
+                  const ActionIcon = action.icon;
+                  return (
+                    <button
+                      key={action.key}
+                      onClick={action.onClick}
+                      title={action.label}
+                      aria-label={action.label}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700/70 bg-neutral-900/50 text-neutral-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:bg-neutral-800/80 hover:text-white transition-all active:scale-[0.97] flex-shrink-0"
+                    >
+                      <ActionIcon className="w-4 h-4 flex-shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
               <ul className="space-y-0.5">
-                {OVERVIEW_NAV.map((item, index) => {
+                {OVERVIEW_NAV.map((item) => {
                   const active = isActive(item.href);
                   const Icon = item.icon;
                   return (
@@ -248,24 +242,6 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
                           {item.label}
                         </span>
                       </Link>
-                      {index === 0 && (
-                        <div className="flex items-center justify-center gap-2 px-3 pt-2 pb-1">
-                          {quickActions.map((action) => {
-                            const ActionIcon = action.icon;
-                            return (
-                              <button
-                                key={action.key}
-                                onClick={action.onClick}
-                                title={action.label}
-                                aria-label={action.label}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700/70 bg-neutral-900/50 text-neutral-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:bg-neutral-800/80 hover:text-white transition-all active:scale-[0.97] flex-shrink-0"
-                              >
-                                <ActionIcon className="w-4 h-4 flex-shrink-0" />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
                     </li>
                   );
                 })}
@@ -357,24 +333,36 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
           {(sectionsOpen.projects || collapsed) && (
             <ul className="space-y-0.5">
               <li>
-                <Link
-                  href="/projects"
-                  title={collapsed ? "All Projects" : undefined}
-                  className={`group/nav flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all active:scale-[0.97] ${
-                    projectsRootActive
-                      ? "bg-neutral-800/60 text-white"
-                      : "text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200"
-                  } ${collapsed ? "justify-center px-2" : ""}`}
-                >
-                  <IconFolder className="w-5 h-5 flex-shrink-0" />
-                  <span
-                    className={`whitespace-nowrap transition-all duration-300 flex-1 ${
-                      collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                    }`}
+                <div className={`flex items-center gap-2 ${collapsed ? "justify-center" : ""}`}>
+                  <Link
+                    href="/projects"
+                    title={collapsed ? "All Projects" : undefined}
+                    className={`group/nav flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all active:scale-[0.97] ${
+                      projectsRootActive
+                        ? "bg-neutral-800/60 text-white"
+                        : "text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200"
+                    } ${collapsed ? "justify-center px-2" : "flex-1"}`}
                   >
-                    All Projects
-                  </span>
-                </Link>
+                    <IconFolder className="w-5 h-5 flex-shrink-0" />
+                    <span
+                      className={`whitespace-nowrap transition-all duration-300 flex-1 ${
+                        collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+                      }`}
+                    >
+                      All Projects
+                    </span>
+                  </Link>
+                  {!collapsed && (
+                    <button
+                      onClick={() => router.push("/projects?new=1")}
+                      title="New Project"
+                      aria-label="New Project"
+                      className="group/new-project flex h-7 w-7 items-center justify-center rounded-md border border-neutral-700/70 bg-neutral-900/50 text-neutral-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:bg-neutral-800/80 hover:text-white transition-all active:scale-[0.97]"
+                    >
+                      <IconPlus className="w-3.5 h-3.5 transition-transform duration-200 group-hover/new-project:rotate-90" />
+                    </button>
+                  )}
+                </div>
               </li>
               {projects.length === 0 ? (
                 <li className={`px-3 py-2 text-xs text-neutral-600 ${collapsed ? "hidden" : ""}`}>

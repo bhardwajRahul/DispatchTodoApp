@@ -35,6 +35,7 @@ export function ProjectsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectWithStats | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -43,6 +44,10 @@ export function ProjectsPage() {
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedId) ?? null,
     [projects, selectedId],
+  );
+  const visibleTasks = useMemo(
+    () => (showCompleted ? tasks : tasks.filter((task) => task.status !== "done")),
+    [tasks, showCompleted],
   );
 
   useEffect(() => {
@@ -67,6 +72,16 @@ export function ProjectsPage() {
       router.replace(`/projects?projectId=${projects[0].id}`, { scroll: false });
     }
   }, [selectedId, projects, router]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setEditingProject(null);
+    setModalOpen(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("new");
+    const qs = params.toString();
+    router.replace(`/projects${qs ? "?" + qs : ""}`, { scroll: false });
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -120,6 +135,29 @@ export function ProjectsPage() {
     refreshProjects();
     toast.success("Project saved");
     window.dispatchEvent(new CustomEvent("projects:refresh"));
+  }
+
+  async function handleTaskStatusToggle(task: Task) {
+    const nextStatus: TaskStatus =
+      task.status === "open"
+        ? "in_progress"
+        : task.status === "in_progress"
+          ? "done"
+          : "open";
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t)),
+    );
+
+    try {
+      await api.tasks.update(task.id, { status: nextStatus });
+      await refreshProjects();
+    } catch {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)),
+      );
+      toast.error("Failed to update task status");
+    }
   }
 
   if (loading) {
@@ -181,6 +219,168 @@ export function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <div key={selectedProject?.id ?? "empty"} className="animate-fade-in-up">
+              {!selectedProject ? (
+                <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-12 text-center">
+                  <IconCalendar className="w-10 h-10 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+                  <p className="text-neutral-500 dark:text-neutral-400 font-medium">
+                    Select a project to view details
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-sm space-y-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${PROJECT_COLORS[selectedProject.color]?.dot ?? "bg-blue-500"}`} />
+                        <h2 className="text-xl font-semibold dark:text-white truncate">
+                          {selectedProject.name}
+                        </h2>
+                      </div>
+                      <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                        {selectedProject.description || "No description added yet."}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingProject(selectedProject);
+                          setModalOpen(true);
+                        }}
+                        className="rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-95 inline-flex items-center gap-1.5"
+                      >
+                        <IconPencil className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(selectedProject.id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all active:scale-95 inline-flex items-center gap-1.5 ${
+                          deletingId === selectedProject.id
+                            ? "bg-red-600 text-white hover:bg-red-500"
+                            : "border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-600"
+                        }`}
+                      >
+                        <IconTrash className="w-3.5 h-3.5" />
+                        {deletingId === selectedProject.id ? "Confirm" : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <StatPill label="Open" value={selectedProject.stats.open} color="blue" />
+                    <StatPill label="In Progress" value={selectedProject.stats.inProgress} color="yellow" />
+                    <StatPill label="Done" value={selectedProject.stats.done} color="green" />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                      Quick Actions
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => router.push(`/tasks?new=1&projectId=${selectedProject.id}`)}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-500 active:scale-95 transition-all inline-flex items-center gap-1.5"
+                      >
+                        <IconPlus className="w-3.5 h-3.5" />
+                        New Task
+                      </button>
+                      <button
+                        onClick={() => router.push(`/tasks?projectId=${selectedProject.id}`)}
+                        className="rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-xs font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-95"
+                      >
+                        View Tasks
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+                        Project Tasks
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                          {selectedProject.stats.done}/{selectedProject.stats.total} done
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={showCompleted}
+                          onClick={() => setShowCompleted((prev) => !prev)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 px-2.5 py-1 text-xs font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-95"
+                        >
+                          <span>Show Completed</span>
+                          <span
+                            className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                              showCompleted ? "bg-blue-600" : "bg-neutral-300 dark:bg-neutral-700"
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+                                showCompleted ? "translate-x-3.5" : "translate-x-0.5"
+                              }`}
+                            />
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                  {loadingTasks ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-10 rounded-lg skeleton-shimmer" />
+                      ))}
+                    </div>
+                  ) : visibleTasks.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-8 text-center">
+                      <IconCheckCircle className="w-8 h-8 text-neutral-300 dark:text-neutral-600 mx-auto mb-2" />
+                      <p className="text-sm text-neutral-400 dark:text-neutral-500">
+                        {tasks.length === 0
+                          ? "No tasks in this project yet"
+                          : "All tasks are completed. Toggle Show Completed to view them."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+                      {visibleTasks.map((task, i) => (
+                        <div
+                          key={task.id}
+                          className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                            i > 0 ? "border-t border-neutral-100 dark:border-neutral-800/60" : ""
+                            }`}
+                          >
+                            <span className={`h-2 w-2 rounded-full ${PROJECT_COLORS[selectedProject.color]?.dot ?? "bg-blue-500"}`} />
+                            <span
+                              className={`flex-1 truncate dark:text-white ${
+                                task.status === "done" ? "line-through text-neutral-400 dark:text-neutral-500" : ""
+                              }`}
+                            >
+                              {task.title}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleTaskStatusToggle(task)}
+                              title="Click to cycle status"
+                              className={`text-xs font-medium px-2 py-0.5 rounded-full transition-all active:scale-95 ${STATUS_BADGES[task.status]}`}
+                            >
+                              {task.status.replace("_", " ")}
+                            </button>
+                            {task.dueDate && (
+                              <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                                {task.dueDate}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-3">
             {projects.map((project) => {
               const active = project.id === selectedId;
@@ -219,131 +419,6 @@ export function ProjectsPage() {
                 </button>
               );
             })}
-          </div>
-
-          <div className="lg:col-span-2">
-            {!selectedProject ? (
-              <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-12 text-center">
-                <IconCalendar className="w-10 h-10 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
-                <p className="text-neutral-500 dark:text-neutral-400 font-medium">
-                  Select a project to view details
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-sm space-y-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${PROJECT_COLORS[selectedProject.color]?.dot ?? "bg-blue-500"}`} />
-                      <h2 className="text-xl font-semibold dark:text-white truncate">
-                        {selectedProject.name}
-                      </h2>
-                    </div>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                      {selectedProject.description || "No description added yet."}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingProject(selectedProject);
-                        setModalOpen(true);
-                      }}
-                      className="rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-95 inline-flex items-center gap-1.5"
-                    >
-                      <IconPencil className="w-3.5 h-3.5" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(selectedProject.id)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all active:scale-95 inline-flex items-center gap-1.5 ${
-                        deletingId === selectedProject.id
-                          ? "bg-red-600 text-white hover:bg-red-500"
-                          : "border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-600"
-                      }`}
-                    >
-                      <IconTrash className="w-3.5 h-3.5" />
-                      {deletingId === selectedProject.id ? "Confirm" : "Delete"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <StatPill label="Open" value={selectedProject.stats.open} color="blue" />
-                  <StatPill label="In Progress" value={selectedProject.stats.inProgress} color="yellow" />
-                  <StatPill label="Done" value={selectedProject.stats.done} color="green" />
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                    Quick Actions
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => router.push(`/tasks?new=1&projectId=${selectedProject.id}`)}
-                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-500 active:scale-95 transition-all inline-flex items-center gap-1.5"
-                    >
-                      <IconPlus className="w-3.5 h-3.5" />
-                      New Task
-                    </button>
-                    <button
-                      onClick={() => router.push(`/tasks?projectId=${selectedProject.id}`)}
-                      className="rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-xs font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-95"
-                    >
-                      View Tasks
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
-                      Project Tasks
-                    </h3>
-                    <span className="text-xs text-neutral-400 dark:text-neutral-500">
-                      {selectedProject.stats.done}/{selectedProject.stats.total} done
-                    </span>
-                  </div>
-
-                  {loadingTasks ? (
-                    <div className="space-y-2">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-10 rounded-lg skeleton-shimmer" />
-                      ))}
-                    </div>
-                  ) : tasks.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-8 text-center">
-                      <IconCheckCircle className="w-8 h-8 text-neutral-300 dark:text-neutral-600 mx-auto mb-2" />
-                      <p className="text-sm text-neutral-400 dark:text-neutral-500">
-                        No tasks in this project yet
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-                      {tasks.map((task, i) => (
-                        <div
-                          key={task.id}
-                          className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
-                            i > 0 ? "border-t border-neutral-100 dark:border-neutral-800/60" : ""
-                          }`}
-                        >
-                          <span className={`h-2 w-2 rounded-full ${PROJECT_COLORS[selectedProject.color]?.dot ?? "bg-blue-500"}`} />
-                          <span className="flex-1 truncate dark:text-white">{task.title}</span>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGES[task.status]}`}>
-                            {task.status.replace("_", " ")}
-                          </span>
-                          {task.dueDate && (
-                            <span className="text-xs text-neutral-400 dark:text-neutral-500">
-                              {task.dueDate}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

@@ -42,6 +42,7 @@ export function TasksPage() {
     searchParams.get("projectId") || "",
   );
   const [sortBy, setSortBy] = useState<SortField>("createdAt");
+  const [showCompleted, setShowCompleted] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
@@ -106,10 +107,10 @@ export function TasksPage() {
     const nextStatus = (searchParams.get("status") as TaskStatus) || "";
     const nextPriority = (searchParams.get("priority") as TaskPriority) || "";
     const nextProject = searchParams.get("projectId") || "";
-    if (nextStatus !== statusFilter) setStatusFilter(nextStatus);
-    if (nextPriority !== priorityFilter) setPriorityFilter(nextPriority);
-    if (nextProject !== projectFilter) setProjectFilter(nextProject);
-  }, [searchParams, statusFilter, priorityFilter, projectFilter]);
+    setStatusFilter((prev) => (prev === nextStatus ? prev : nextStatus));
+    setPriorityFilter((prev) => (prev === nextPriority ? prev : nextPriority));
+    setProjectFilter((prev) => (prev === nextProject ? prev : nextProject));
+  }, [searchParams]);
 
   // Update URL params when filters change
   useEffect(() => {
@@ -132,7 +133,11 @@ export function TasksPage() {
     router.replace(`/tasks${qs ? "?" + qs : ""}`, { scroll: false });
   }, [searchParams, router]);
 
-  const sorted = [...tasks].sort((a, b) => {
+  const filteredTasks = showCompleted
+    ? tasks
+    : tasks.filter((task) => task.status !== "done");
+
+  const sorted = [...filteredTasks].sort((a, b) => {
     if (sortBy === "dueDate") {
       if (!a.dueDate && !b.dueDate) return 0;
       if (!a.dueDate) return 1;
@@ -198,6 +203,12 @@ export function TasksPage() {
   const openCount = tasks.filter((t) => t.status === "open").length;
   const inProgressCount = tasks.filter((t) => t.status === "in_progress").length;
   const doneCount = tasks.filter((t) => t.status === "done").length;
+  const hasAnyTasks = tasks.length > 0;
+  const emptyMessage = statusFilter || priorityFilter || projectFilter
+    ? "Try adjusting your filters."
+    : hasAnyTasks && !showCompleted
+      ? "All tasks are completed. Toggle Show Completed to view them."
+      : "Create your first task to get started.";
 
   const statusFilterOptions = [
     { value: "", label: "All", dot: "bg-neutral-400" },
@@ -267,7 +278,7 @@ export function TasksPage() {
 
       {/* Filters & sort */}
       <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="grid gap-4 md:grid-cols-[auto_auto_auto_1fr] items-center">
           <FilterGroup
             label="Status"
             value={statusFilter}
@@ -293,7 +304,7 @@ export function TasksPage() {
               />
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 md:justify-end">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
                 Sort
@@ -307,6 +318,26 @@ export function TasksPage() {
                 />
               </div>
             </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showCompleted}
+              onClick={() => setShowCompleted((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-95"
+            >
+              <span>Show Completed</span>
+              <span
+                className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                  showCompleted ? "bg-blue-600" : "bg-neutral-300 dark:bg-neutral-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+                    showCompleted ? "translate-x-3.5" : "translate-x-0.5"
+                  }`}
+                />
+              </span>
+            </button>
             {hasActiveFilters && (
               <button
                 onClick={() => {
@@ -345,11 +376,9 @@ export function TasksPage() {
           <IconInboxEmpty className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
           <p className="text-neutral-500 dark:text-neutral-400 font-medium">No tasks found</p>
           <p className="text-sm text-neutral-400 dark:text-neutral-500 mt-1 mb-4">
-            {statusFilter || priorityFilter
-              ? "Try adjusting your filters."
-              : "Create your first task to get started."}
+            {emptyMessage}
           </p>
-          {!statusFilter && !priorityFilter && (
+          {!statusFilter && !priorityFilter && !projectFilter && (
             <button
               onClick={() => {
                 setEditingTask(null);
