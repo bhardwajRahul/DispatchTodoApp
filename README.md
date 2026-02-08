@@ -1,10 +1,6 @@
 <p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&height=240&color=0:0a1020,35:12244a,70:1d4ed8,100:7c3aed&text=Dispatch&fontSize=70&fontColor=ffffff&fontAlignY=40&desc=Local-first%20productivity%20command%20center&descSize=18&descAlignY=62&animation=fadeIn" alt="Dispatch banner" />
-</p>
-
-<p align="center"><strong>A polished local-first workspace for tasks, projects, notes, and daily planning.</strong></p>
-
-<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=240&color=0:0a1020,35:12244a,70:1d4ed8,100:7c3aed&text=Dispatch&fontSize=70&fontColor=ffffff&fontAlignY=40&desc=A%20polished%20local-first%20workspace%20for%20tasks%2C%20projects%2C%20notes%2C%20and%20daily%20planning.&descSize=18&descAlignY=62&animation=fadeIn" alt="Dispatch banner" />
+  <br />
   <a href="https://github.com/nkasco/DispatchTodoApp"><img alt="Version" src="https://img.shields.io/github/package-json/v/nkasco/DispatchTodoApp?style=for-the-badge&label=Version&color=f59e0b" /></a>
   <a href="https://github.com/nkasco/DispatchTodoApp/pkgs/container/dispatchtodoapp"><img alt="Docker Pulls" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2Fnkasco%2FDispatchTodoApp%2Fdispatchtodoapp&query=%24.downloadCount&label=Docker%20Pulls&color=0ea5e9&style=for-the-badge" /></a>
   <a href="https://github.com/nkasco/DispatchTodoApp/commits/main"><img alt="Last Updated" src="https://img.shields.io/github/last-commit/nkasco/DispatchTodoApp?style=for-the-badge&label=Last%20Updated&color=22c55e" /></a>
