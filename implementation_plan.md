@@ -187,4 +187,20 @@ Add a recycle bin that holds deleted tasks, notes, and projects for 30 days befo
 - [x] **11.7** Build the Recycle Bin UI page (`/recycle-bin`) with type filter tabs, restore/delete-forever actions, and days-remaining indicator.
 - [x] **11.8** Add a Recycle Bin link (with trash icon) to the sidebar Workspace section below Notes.
 - [x] **11.9** Update `spec.md` to reflect the full current feature set including soft-delete, recycle bin, and all pages/endpoints.
+
+## Phase 12: UX Consistency, Insights & Responsive Experience
+
+Address cross-page UX inconsistencies, strengthen Dispatch as a daily workflow/journal hub, add visual branding, and ensure strong multi-device responsiveness.
+
+- [ ] **12.1** Ensure GitHub OAuth sign-in uses the same login transition animation sequence currently used for local credentials sign-in.
+- [ ] **12.2** Fix Project creation modal positioning bug where the popup drifts lower as project count increases.
+- [ ] **12.3** Fix Task creation modal positioning bug on the Tasks page where, when multiple tasks exist, the popup appears at the very top without expected margin.
+- [ ] **12.4** Rearrange the Dashboard "Recent Activity" section layout on the Dashboard page for clearer hierarchy and spacing.
+- [ ] **12.5** Persist and honor the Projects subsection collapsed state even when the full sidebar is collapsed and expanded again.
+- [ ] **12.6** Add a new **Insights** section (name candidate replacing "History") with completion trend visualizations over time (e.g., line/bar charts, selectable ranges).
+- [ ] **12.7** Update Dispatch page verbaige to explicitly position Daily Summary as examples such as a planning note or personal journal (including gratitude/reflection use).
+- [ ] **12.8** On Dispatch save, auto-create or update a same-day linked Note entry so the Daily Summary is retained in Notes history. The note name should have the date in it, "Daily Dispatch - <date>" format, this format will also make it easier to know if it should create a new note or update an existing one.
+- [ ] **12.9** Allow completion of linked tasks directly from the Dispatch page with existing optimistic update + undo behavior parity. UI elements should allow the checkboxes too.
+- [ ] **12.10** Add app branding assets: favicon (lightning bolt candidate) and initial logo treatment for app identity.
+- [ ] **12.11** Validate and improve responsive behavior for iPhone-sized screens, iPad/tablet breakpoints, and smaller desktop windows.
 /usa
