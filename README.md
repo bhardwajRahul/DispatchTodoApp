@@ -16,7 +16,7 @@
   <a href="#prerequisites">Prerequisites</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#docker-deployment">Docker Deployment</a> •
-  <a href="#interactive-setup-recommended">Interactive Setup</a> •
+  <a href="#docker-setup-no-npm-recommended">Docker Setup</a> •
   <a href="#feature-tour">Feature Tour</a> •
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#scripts">Scripts</a>
@@ -65,7 +65,7 @@ flowchart LR
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) `20.9+` (LTS recommended).  
-  Node includes [npm](https://www.npmjs.com/), which is required for `npm install`, `npm run dev`, and `npm run build`.
+  Node includes [npm](https://www.npmjs.com/), which is required for local development commands (`npm run dev`, `npm run build`) and `dispatch-dev.*` scripts.
 - [Git](https://git-scm.com/downloads) (required if you use the `update` launcher command or want to pull latest changes).
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (required for Docker-based runs below).
 - Shell support for launcher scripts:
@@ -77,7 +77,23 @@ flowchart LR
 
 ## Quick Start
 
-### Interactive Setup (Recommended)
+### Docker Setup (No npm, Recommended)
+
+Dispatch includes production launchers that create/update `.env.local` and run Docker Compose without npm.
+
+Use one of the following:
+
+```powershell
+.\dispatch.ps1 setup
+.\dispatch.ps1 start
+```
+
+```bash
+./dispatch.sh setup
+./dispatch.sh start
+```
+
+### Interactive Setup (Developer Alternative)
 
 Dispatch includes an interactive setup wizard that creates `.env.local` and can start Dispatch via Docker Compose.
 
@@ -88,11 +104,11 @@ npm run setup
 ```
 
 ```powershell
-.\dispatch.ps1 setup
+.\dispatch-dev.ps1 setup
 ```
 
 ```bash
-./dispatch.sh setup
+./dispatch-dev.sh setup
 ```
 
 If `.env.local` already exists, the setup wizard asks before overwriting anything.
@@ -264,20 +280,32 @@ Both methods persist SQLite data in Docker volume `dispatch-data` even if the co
 
 ## Launcher Scripts
 
+Production launchers (Docker, no npm required):
+
 - `.\dispatch.ps1 <command>` (Windows PowerShell)
 - `./dispatch.sh <command>` (Bash)
-- Shared commands: `setup`, `dev`, `start`, `build`, `update`, `seed`, `studio`, `test`, `lint`, `version`, `help`
+- Commands: `setup`, `start`, `stop`, `restart`, `logs`, `status`, `pull`, `down`, `version`, `help`
+
+Developer launchers (Node.js + npm required):
+
+- `.\dispatch-dev.ps1 <command>` (Windows PowerShell)
+- `./dispatch-dev.sh <command>` (Bash)
+- Commands: `setup`, `dev`, `start`, `build`, `update`, `seed`, `studio`, `test`, `lint`, `version`, `help`
 
 Example:
 
 ```powershell
 .\dispatch.ps1 help
 .\dispatch.ps1 setup
+.\dispatch.ps1 start
+.\dispatch-dev.ps1 dev
 ```
 
 ```bash
 ./dispatch.sh help
 ./dispatch.sh setup
+./dispatch.sh start
+./dispatch-dev.sh dev
 ```
 
 ---

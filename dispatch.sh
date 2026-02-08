@@ -1,212 +1,251 @@
 #!/usr/bin/env bash
-#
-# Dispatch CLI — launcher for the Dispatch task management app.
-#
-# Usage:
-#   ./dispatch.sh <command>
-#
-# Commands:
-#   setup    Interactive setup (.env + Docker Compose startup)
-#   dev      Start the development server
-#   start    Start the production server
-#   build    Create a production build
-#   update   Pull latest, install deps, run migrations
-#   seed     Load sample data
-#   studio   Open Drizzle Studio (database GUI)
-#   test     Run the test suite
-#   lint     Run ESLint
-#   version  Show version number
-#   help     Show this help message
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# ── Version ───────────────────────────────────────────────────
-VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0")
+ENV_FILE="$SCRIPT_DIR/.env.local"
+VERSION="$(node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0")"
 
-# ── Colors ────────────────────────────────────────────────────
 RESET="\033[0m"
 BOLD="\033[1m"
 DIM="\033[2m"
-UNDERLINE="\033[4m"
 CYAN="\033[36m"
 GREEN="\033[32m"
 YELLOW="\033[33m"
 RED="\033[31m"
 
-# 256-color palette for gradient
-C1="\033[38;5;51m"
-C2="\033[38;5;50m"
-C3="\033[38;5;44m"
-C4="\033[38;5;38m"
-C5="\033[38;5;32m"
-C6="\033[38;5;44m"
-
-# ── Logo ──────────────────────────────────────────────────────
 show_logo() {
-    echo ""
-    echo -e "${C1}  ██████╗ ██╗███████╗██████╗  █████╗ ████████╗ ██████╗██╗  ██╗${RESET}"
-    echo -e "${C2}  ██╔══██╗██║██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██║  ██║${RESET}"
-    echo -e "${C3}  ██║  ██║██║███████╗██████╔╝███████║   ██║   ██║     ███████║${RESET}"
-    echo -e "${C4}  ██║  ██║██║╚════██║██╔═══╝ ██╔══██║   ██║   ██║     ██╔══██║${RESET}"
-    echo -e "${C5}  ██████╔╝██║███████║██║     ██║  ██║   ██║   ╚██████╗██║  ██║${RESET}"
-    echo -e "${C6}  ╚═════╝ ╚═╝╚══════╝╚═╝     ╚═╝  ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝${RESET}"
-    echo ""
-    echo -e "  ${DIM}v${VERSION} — Personal task & dispatch manager${RESET}"
-    echo ""
+  echo ""
+  echo -e "${CYAN}  ____  ___ ____  ____   _  _____ ____ _   _ ${RESET}"
+  echo -e "${CYAN} |  _ \\|_ _/ ___||  _ \\ / \\|_   _/ ___| | | |${RESET}"
+  echo -e "${CYAN} | | | || |\\___ \\| |_) / _ \\ | || |   | |_| |${RESET}"
+  echo -e "${CYAN} | |_| || | ___) |  __/ ___ \\| || |___|  _  |${RESET}"
+  echo -e "${CYAN} |____/|___|____/|_| /_/   \\_\\_| \\____|_| |_|${RESET}"
+  echo ""
+  echo -e "  ${DIM}v${VERSION} - Docker production launcher${RESET}"
+  echo ""
 }
 
-# ── Help ──────────────────────────────────────────────────────
 show_help() {
-    show_logo
-
-    echo -e "  ${BOLD}USAGE${RESET}"
-    echo -e "    ./dispatch.sh ${CYAN}<command>${RESET}"
-    echo ""
-    echo -e "  ${BOLD}COMMANDS${RESET}"
-
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "setup"   "Interactive setup (.env + Docker Compose startup)"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "dev"     "Start the development server (http://localhost:3000)"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "start"   "Start the production server"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "build"   "Create a production build"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "update"  "Pull latest changes, install deps, run migrations"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "seed"    "Load sample data into the database"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "studio"  "Open Drizzle Studio (database GUI)"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "test"    "Run the test suite"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "lint"    "Run ESLint"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "version" "Show version number"
-    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "help"    "Show this help message"
-    echo ""
+  show_logo
+  echo -e "  ${BOLD}USAGE${RESET}"
+  echo "    ./dispatch.sh <command>"
+  echo ""
+  echo -e "  ${BOLD}COMMANDS${RESET}"
+  echo "    setup      Create or update .env.local for Docker"
+  echo "    start      Start Dispatch with Docker Compose"
+  echo "    stop       Stop running Dispatch containers"
+  echo "    restart    Restart Dispatch containers"
+  echo "    logs       Follow Dispatch logs"
+  echo "    status     Show container status"
+  echo "    pull       Pull latest image and restart"
+  echo "    down       Stop and remove containers/network"
+  echo "    version    Show version number"
+  echo "    help       Show this help message"
+  echo ""
+  echo -e "  ${DIM}Developer workflow (npm build/test/dev) moved to ./dispatch-dev.sh${RESET}"
+  echo ""
 }
 
-# ── Prerequisite checks ──────────────────────────────────────
-assert_node_modules() {
-    if [ ! -d "node_modules" ]; then
-        echo -e "  ${YELLOW}Dependencies not installed. Running npm install...${RESET}"
-        echo ""
-        npm install
-        if [ $? -ne 0 ]; then
-            echo -e "  ${RED}npm install failed. Please fix errors and retry.${RESET}"
-            exit 1
-        fi
-        echo ""
+assert_docker() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo -e "${RED}Docker is not installed or not on PATH.${RESET}"
+    exit 1
+  fi
+}
+
+make_auth_secret() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 32 | tr '+/' '-_' | tr -d '=' | tr -d '\n'
+    return
+  fi
+
+  if [ -r /dev/urandom ] && command -v base64 >/dev/null 2>&1; then
+    head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=' | tr -d '\n'
+    return
+  fi
+
+  printf "dispatch-local-secret-change-me"
+}
+
+get_env_value() {
+  local target_key="$1"
+
+  if [ ! -f "$ENV_FILE" ]; then
+    return 1
+  fi
+
+  while IFS= read -r raw_line || [ -n "$raw_line" ]; do
+    local line="${raw_line%$'\r'}"
+
+    case "$line" in
+      ""|\#*)
+        continue
+        ;;
+      "$target_key="*)
+        echo "${line#*=}"
+        return 0
+        ;;
+    esac
+  done < "$ENV_FILE"
+
+  return 1
+}
+
+ensure_env_file() {
+  local existing="false"
+  local dispatch_port="3000"
+  local nextauth_url=""
+  local auth_secret=""
+  local auth_trust_host=""
+  local auth_github_id=""
+  local auth_github_secret=""
+  local extras=()
+
+  if [ -f "$ENV_FILE" ]; then
+    existing="true"
+  fi
+
+  if dispatch_port="$(get_env_value "DISPATCH_PORT")"; then :; else dispatch_port="3000"; fi
+  if nextauth_url="$(get_env_value "NEXTAUTH_URL")"; then :; else nextauth_url="http://localhost:${dispatch_port}"; fi
+  if auth_secret="$(get_env_value "AUTH_SECRET")"; then :; else auth_secret="$(make_auth_secret)"; fi
+  if auth_trust_host="$(get_env_value "AUTH_TRUST_HOST")"; then :; else auth_trust_host="true"; fi
+  if auth_github_id="$(get_env_value "AUTH_GITHUB_ID")"; then :; else auth_github_id=""; fi
+  if auth_github_secret="$(get_env_value "AUTH_GITHUB_SECRET")"; then :; else auth_github_secret=""; fi
+
+  if [ -f "$ENV_FILE" ]; then
+    while IFS= read -r raw_line || [ -n "$raw_line" ]; do
+      local line="${raw_line%$'\r'}"
+      local key=""
+
+      case "$line" in
+        ""|\#*)
+          continue
+          ;;
+      esac
+
+      key="${line%%=*}"
+      case "$key" in
+        AUTH_SECRET|NEXTAUTH_URL|AUTH_TRUST_HOST|AUTH_GITHUB_ID|AUTH_GITHUB_SECRET|DISPATCH_PORT)
+          ;;
+        *)
+          extras+=("$line")
+          ;;
+      esac
+    done < "$ENV_FILE"
+  fi
+
+  {
+    echo "# NextAuth"
+    echo "AUTH_SECRET=${auth_secret}"
+    echo "NEXTAUTH_URL=${nextauth_url}"
+    echo "AUTH_TRUST_HOST=${auth_trust_host}"
+    echo "AUTH_GITHUB_ID=${auth_github_id}"
+    echo "AUTH_GITHUB_SECRET=${auth_github_secret}"
+    echo ""
+    echo "# Docker"
+    echo "DISPATCH_PORT=${dispatch_port}"
+
+    if [ ${#extras[@]} -gt 0 ]; then
+      echo ""
+      echo "# Additional"
+      local extra_line
+      for extra_line in "${extras[@]}"; do
+        echo "$extra_line"
+      done
     fi
-}
 
-# ── Commands ──────────────────────────────────────────────────
-cmd_setup() {
-    show_logo
-    assert_node_modules
-    npx tsx scripts/setup.ts
-}
-
-cmd_dev() {
-    show_logo
-    assert_node_modules
-    echo -e "  ${GREEN}Starting development server...${RESET}"
-    echo -e "  ${DIM}http://localhost:3000${RESET}"
     echo ""
-    npm run dev
+  } > "$ENV_FILE"
+
+  if [ "$existing" = "true" ]; then
+    echo -e "${GREEN}Updated .env.local for Docker deployment.${RESET}"
+  else
+    echo -e "${GREEN}Created .env.local for Docker deployment.${RESET}"
+  fi
+  echo -e "${DIM}Using DISPATCH_PORT=${dispatch_port}${RESET}"
+}
+
+run_compose() {
+  docker compose --env-file "$ENV_FILE" "$@"
+}
+
+cmd_setup() {
+  show_logo
+  assert_docker
+  ensure_env_file
 }
 
 cmd_start() {
-    show_logo
-    assert_node_modules
-    echo -e "  ${GREEN}Starting production server...${RESET}"
-    echo ""
-    npm run start
+  show_logo
+  assert_docker
+  ensure_env_file
+  run_compose up -d
+  echo -e "${GREEN}Dispatch is running.${RESET}"
 }
 
-cmd_build() {
-    show_logo
-    assert_node_modules
-    echo -e "  ${GREEN}Creating production build...${RESET}"
-    echo ""
-    npm run build
+cmd_stop() {
+  show_logo
+  assert_docker
+  ensure_env_file
+  run_compose stop
 }
 
-cmd_update() {
-    show_logo
-    echo -e "  ${GREEN}Updating Dispatch...${RESET}"
-    echo ""
-
-    # Pull latest changes
-    echo -e "  [1/3] ${CYAN}Pulling latest changes...${RESET}"
-    git pull || echo -e "  ${YELLOW}Git pull failed — you may have local changes. Continuing...${RESET}"
-    echo ""
-
-    # Install dependencies
-    echo -e "  [2/3] ${CYAN}Installing dependencies...${RESET}"
-    npm install
-    if [ $? -ne 0 ]; then
-        echo -e "  ${RED}npm install failed.${RESET}"
-        exit 1
-    fi
-    echo ""
-
-    # Run migrations
-    echo -e "  [3/3] ${CYAN}Running database migrations...${RESET}"
-    npm run db:migrate || echo -e "  ${YELLOW}No pending migrations or migration failed.${RESET}"
-    echo ""
-
-    echo -e "  ${GREEN}Update complete!${RESET}"
-    echo ""
+cmd_restart() {
+  show_logo
+  assert_docker
+  ensure_env_file
+  run_compose restart
 }
 
-cmd_seed() {
-    show_logo
-    assert_node_modules
-    echo -e "  ${GREEN}Seeding database with sample data...${RESET}"
-    echo ""
-    npm run db:seed
+cmd_logs() {
+  show_logo
+  assert_docker
+  ensure_env_file
+  run_compose logs -f dispatch
 }
 
-cmd_studio() {
-    show_logo
-    assert_node_modules
-    echo -e "  ${GREEN}Opening Drizzle Studio...${RESET}"
-    echo -e "  ${DIM}Browse your database at https://local.drizzle.studio${RESET}"
-    echo ""
-    npm run db:studio
+cmd_status() {
+  show_logo
+  assert_docker
+  ensure_env_file
+  run_compose ps
 }
 
-cmd_test() {
-    show_logo
-    assert_node_modules
-    echo -e "  ${GREEN}Running tests...${RESET}"
-    echo ""
-    npm test
+cmd_down() {
+  show_logo
+  assert_docker
+  ensure_env_file
+  run_compose down
 }
 
-cmd_lint() {
-    show_logo
-    assert_node_modules
-    echo -e "  ${GREEN}Running ESLint...${RESET}"
-    echo ""
-    npm run lint
+cmd_pull() {
+  show_logo
+  assert_docker
+  ensure_env_file
+  run_compose pull
+  run_compose up -d
 }
 
-# ── Route ─────────────────────────────────────────────────────
 COMMAND="${1:-help}"
 
 case "$COMMAND" in
-    setup)   cmd_setup ;;
-    dev)     cmd_dev ;;
-    start)   cmd_start ;;
-    build)   cmd_build ;;
-    update)  cmd_update ;;
-    seed)    cmd_seed ;;
-    studio)  cmd_studio ;;
-    test)    cmd_test ;;
-    lint)    cmd_lint ;;
-    version) echo "Dispatch v${VERSION}" ;;
-    help)    show_help ;;
-    *)
-        echo -e "  ${RED}Unknown command: ${COMMAND}${RESET}"
-        echo ""
-        show_help
-        exit 1
-        ;;
+  setup)   cmd_setup ;;
+  start)   cmd_start ;;
+  stop)    cmd_stop ;;
+  restart) cmd_restart ;;
+  logs)    cmd_logs ;;
+  status)  cmd_status ;;
+  down)    cmd_down ;;
+  pull)    cmd_pull ;;
+  version) echo "Dispatch v${VERSION}" ;;
+  help)    show_help ;;
+  *)
+    echo -e "${RED}Unknown command: ${COMMAND}${RESET}"
+    echo ""
+    show_help
+    exit 1
+    ;;
 esac
