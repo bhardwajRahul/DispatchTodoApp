@@ -5,17 +5,13 @@
 <p align="center"><strong>A polished local-first workspace for tasks, projects, notes, and daily planning.</strong></p>
 
 <p align="center">
+  <a href="https://github.com/nkasco/DispatchTodoApp"><img alt="Version" src="https://img.shields.io/github/package-json/v/nkasco/DispatchTodoApp?style=for-the-badge&label=Version&color=f59e0b" /></a>
   <a href="https://github.com/nkasco/DispatchTodoApp/pkgs/container/dispatchtodoapp"><img alt="Docker Pulls" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2Fnkasco%2FDispatchTodoApp%2Fdispatchtodoapp&query=%24.downloadCount&label=Docker%20Pulls&color=0ea5e9&style=for-the-badge" /></a>
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js" />
-  <img alt="React" src="https://img.shields.io/badge/React-19-0f172a?style=for-the-badge&logo=react" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-1d4ed8?style=for-the-badge&logo=typescript&logoColor=white" />
-  <img alt="SQLite" src="https://img.shields.io/badge/SQLite-Local-0ea5e9?style=for-the-badge&logo=sqlite" />
-  <img alt="Tailwind" src="https://img.shields.io/badge/Tailwind-v4-0891b2?style=for-the-badge&logo=tailwindcss&logoColor=white" />
-</p>
-
-<p align="center">
+  <a href="https://github.com/nkasco/DispatchTodoApp/commits/main"><img alt="Last Updated" src="https://img.shields.io/github/last-commit/nkasco/DispatchTodoApp?style=for-the-badge&label=Last%20Updated&color=22c55e" /></a>
+  <br />
   <a href="#quick-start">Quick Start</a> •
   <a href="#feature-tour">Feature Tour</a> •
+  <a href="#tech-stack">Tech Stack</a> •
   <a href="#local-development---prerequisites">Local Dev</a>
 </p>
 
@@ -46,6 +42,16 @@
 - `Search`: global search across tasks, notes, and dispatch records.
 - `Recycle Bin`: restore or permanently remove archived items.
 - `Auth`: GitHub OAuth and local development credentials.
+
+## Tech Stack
+
+<p align="center">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js" />
+  <img alt="React" src="https://img.shields.io/badge/React-19-0f172a?style=for-the-badge&logo=react" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-1d4ed8?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img alt="SQLite" src="https://img.shields.io/badge/SQLite-Local-0ea5e9?style=for-the-badge&logo=sqlite" />
+  <img alt="Tailwind" src="https://img.shields.io/badge/Tailwind-v4-0891b2?style=for-the-badge&logo=tailwindcss&logoColor=white" />
+</p>
 
 ## Architecture
 
