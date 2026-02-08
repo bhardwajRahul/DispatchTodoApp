@@ -5,6 +5,7 @@
 <p align="center"><strong>A polished local-first workspace for tasks, projects, notes, and daily planning.</strong></p>
 
 <p align="center">
+  <a href="https://github.com/nkasco/DispatchTodoApp/pkgs/container/dispatchtodoapp"><img alt="Docker Pulls" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2Fnkasco%2FDispatchTodoApp%2Fdispatchtodoapp&query=%24.downloadCount&label=Docker%20Pulls&color=0ea5e9&style=for-the-badge" /></a>
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js" />
   <img alt="React" src="https://img.shields.io/badge/React-19-0f172a?style=for-the-badge&logo=react" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-1d4ed8?style=for-the-badge&logo=typescript&logoColor=white" />
