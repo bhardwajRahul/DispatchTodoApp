@@ -53,16 +53,6 @@
   <img alt="Tailwind" src="https://img.shields.io/badge/Tailwind-v4-0891b2?style=for-the-badge&logo=tailwindcss&logoColor=white" />
 </p>
 
-## Architecture
-
-```mermaid
-flowchart LR
-    UI[Next.js App Router + React] --> API[Route Handlers]
-    API --> AUTH[NextAuth]
-    API --> ORM[Drizzle ORM]
-    ORM --> DB[(SQLite on disk)]
-```
-
 ## Quick Start
 
 ### Docker Setup (Recommended)
