@@ -204,3 +204,14 @@ Address cross-page UX inconsistencies, strengthen Dispatch as a daily workflow/j
 - [ ] **12.10** Add app branding assets: favicon (lightning bolt candidate) and initial logo treatment for app identity.
 - [ ] **12.11** There is a subtle flicker when loading any page because of the way it queries the data via API. Any way to make this smoother? Maybe the page loads but the areas that are loading have loading bars and animations to show the content once it's pulled back
 - [ ] **12.12** Validate and improve responsive behavior for iPhone-sized screens, iPad/tablet breakpoints, and smaller desktop windows.
+
+## Phase 13: Administration, Account Control & Data-At-Rest Security Protection
+
+Add a secure admin control plane with explicit role management and optional database encryption controls.
+
+- [ ] **13.1** Add an **Administration** settings section, visible only to administrator accounts, surfaced from the Profile page. Add a nice badge of honor to the page.
+- [ ] **13.2** Implement first-user bootstrap logic so the very first account created is automatically assigned the administrator role.
+- [ ] **13.3** Add administrator user-management actions: reset password, freeze/unfreeze account access, create and delete user accounts.
+- [ ] **13.4** Add administrator role delegation so an existing admin can promote or demote other user accounts to/from administrator status.
+- [ ] **13.5** Add optional support for encrypting the SQLite database at rest.
+- [ ] **13.6** Add an administrator-controlled setting to enable or disable at-rest database encryption, defaulted to **off**.
