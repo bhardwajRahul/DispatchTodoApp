@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   api,
   type Dispatch,
@@ -26,6 +26,8 @@ const STATUS_STYLES: Record<TaskStatus, { dot: string; label: string; ring: stri
   done: { dot: "bg-green-500", label: "Done", ring: "text-green-500" },
 };
 
+const COMPLETE_DISMISS_MS = 420;
+
 function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
@@ -37,7 +39,6 @@ export function DispatchPage() {
   const [linkedTasks, setLinkedTasks] = useState<Task[]>([]);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showSkeleton, setShowSkeleton] = useState(false);
   const [summary, setSummary] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedSummary, setSavedSummary] = useState(false);
@@ -48,6 +49,8 @@ export function DispatchPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [unfinalizing, setUnfinalizing] = useState(false);
   const [unfinalizeWarning, setUnfinalizeWarning] = useState<{ nextDate: string } | null>(null);
+  const [completingIds, setCompletingIds] = useState<string[]>([]);
+  const completionTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const fetchDispatch = useCallback(async () => {
     setLoading(true);
@@ -83,15 +86,6 @@ export function DispatchPage() {
   }, [fetchDispatch]);
 
   useEffect(() => {
-    if (!loading) {
-      setShowSkeleton(false);
-      return;
-    }
-    const timer = setTimeout(() => setShowSkeleton(true), 120);
-    return () => clearTimeout(timer);
-  }, [loading]);
-
-  useEffect(() => {
     if (!confirmComplete) return;
     const timer = setTimeout(() => setConfirmComplete(false), 3500);
     return () => clearTimeout(timer);
@@ -100,6 +94,33 @@ export function DispatchPage() {
   useEffect(() => {
     setTaskSearch("");
   }, [date]);
+
+  useEffect(
+    () => () => {
+      Object.values(completionTimeoutsRef.current).forEach((timeout) => clearTimeout(timeout));
+    },
+    [],
+  );
+
+  function queueCompletionCleanup(taskId: string) {
+    const existing = completionTimeoutsRef.current[taskId];
+    if (existing) {
+      clearTimeout(existing);
+    }
+    completionTimeoutsRef.current[taskId] = setTimeout(() => {
+      setCompletingIds((prev) => prev.filter((id) => id !== taskId));
+      delete completionTimeoutsRef.current[taskId];
+    }, COMPLETE_DISMISS_MS);
+  }
+
+  function clearCompletionState(taskId: string) {
+    const timeout = completionTimeoutsRef.current[taskId];
+    if (timeout) {
+      clearTimeout(timeout);
+      delete completionTimeoutsRef.current[taskId];
+    }
+    setCompletingIds((prev) => prev.filter((id) => id !== taskId));
+  }
 
   async function handleSaveSummary() {
     if (!dispatch) return;
@@ -139,14 +160,12 @@ export function DispatchPage() {
   }
 
   async function handleStatusToggle(task: Task) {
-    const next: TaskStatus =
-      task.status === "open"
-        ? "in_progress"
-        : task.status === "in_progress"
-          ? "done"
-          : "open";
+    const next: TaskStatus = task.status === "open" ? "in_progress" : "open";
 
     setLinkedTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)),
+    );
+    setAllTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)),
     );
 
@@ -154,6 +173,64 @@ export function DispatchPage() {
       await api.tasks.update(task.id, { status: next });
     } catch {
       fetchDispatch();
+      toast.error("Failed to update task status");
+    }
+  }
+
+  async function handleDoneToggle(task: Task) {
+    const next: TaskStatus = task.status === "done" ? "open" : "done";
+    const previousStatus = task.status;
+
+    if (completingIds.includes(task.id)) {
+      return;
+    }
+
+    if (next === "done") {
+      setCompletingIds((prev) => (prev.includes(task.id) ? prev : [...prev, task.id]));
+      queueCompletionCleanup(task.id);
+    } else {
+      clearCompletionState(task.id);
+    }
+
+    setLinkedTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)),
+    );
+    setAllTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)),
+    );
+
+    try {
+      await api.tasks.update(task.id, { status: next });
+      if (next === "done") {
+        toast.undo(`"${task.title}" completed`, async () => {
+          clearCompletionState(task.id);
+          setLinkedTasks((prev) =>
+            prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+          );
+          setAllTasks((prev) =>
+            prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+          );
+          try {
+            await api.tasks.update(task.id, { status: previousStatus });
+          } catch {
+            setLinkedTasks((prev) =>
+              prev.map((t) => (t.id === task.id ? { ...t, status: "done" } : t)),
+            );
+            setAllTasks((prev) =>
+              prev.map((t) => (t.id === task.id ? { ...t, status: "done" } : t)),
+            );
+            toast.error("Failed to undo");
+          }
+        });
+      }
+    } catch {
+      clearCompletionState(task.id);
+      setLinkedTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+      );
+      setAllTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+      );
       toast.error("Failed to update task status");
     }
   }
@@ -254,7 +331,7 @@ export function DispatchPage() {
   const doneCount = linkedTasks.filter((t) => t.status === "done").length;
   const progressPercent = linkedTasks.length > 0 ? Math.round((doneCount / linkedTasks.length) * 100) : 0;
 
-  if (loading && showSkeleton) {
+  if (loading) {
     return (
       <div className="mx-auto max-w-5xl p-6">
         <div className="space-y-4">
@@ -264,9 +341,6 @@ export function DispatchPage() {
         </div>
       </div>
     );
-  }
-  if (loading) {
-    return <div className="mx-auto max-w-5xl p-6" />;
   }
 
   return (
@@ -371,11 +445,11 @@ export function DispatchPage() {
             </h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
               Dispatches combine the tasks you plan to tackle with a short daily summary,
-              giving you a single place to plan, track, and close out the day.
+              giving you one place to plan, track, and close out the day.
             </p>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              Link tasks, jot down outcomes, and complete the day to roll unfinished work
-              forward automatically.
+              Treat the summary as a planning note, personal journal, or quick gratitude and
+              reflection entry. Your saved summary is automatically retained in Notes history.
             </p>
           </div>
           <div className="rounded-xl border border-white/80 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 p-4 space-y-3">
@@ -398,7 +472,7 @@ export function DispatchPage() {
                 </span>
                 <div>
                   <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">Write a quick summary</p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Capture goals and outcomes.</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Capture goals, gratitude, and reflections.</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-neutral-200/60 dark:border-neutral-800/80 bg-white dark:bg-neutral-900 px-3 py-2">
@@ -419,6 +493,9 @@ export function DispatchPage() {
       <section className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden shadow-sm animate-fade-in-up" style={{ animationDelay: "100ms" }}>
         <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800/50">
           <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Daily Summary</h2>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Planning note, journal entry, or gratitude reflection for {date}.
+          </p>
         </div>
         <div className="p-4 space-y-3">
           {dispatch?.finalized ? (
@@ -430,7 +507,7 @@ export function DispatchPage() {
               <textarea
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
-                placeholder="Write your daily summary, goals, or notes..."
+                placeholder="Write your plan, journal notes, gratitude, or end-of-day reflection..."
                 rows={4}
                 className="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm dark:text-white focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none resize-none transition-colors"
               />
@@ -471,6 +548,8 @@ export function DispatchPage() {
                     task={task}
                     index={i}
                     finalized={dispatch?.finalized ?? false}
+                    isCompleting={completingIds.includes(task.id)}
+                    onDoneToggle={() => handleDoneToggle(task)}
                     onStatusToggle={() => handleStatusToggle(task)}
                     onUnlink={() => handleUnlinkTask(task.id)}
                   />
@@ -487,6 +566,8 @@ export function DispatchPage() {
                     task={task}
                     index={i}
                     finalized={dispatch?.finalized ?? false}
+                    isCompleting={completingIds.includes(task.id)}
+                    onDoneToggle={() => handleDoneToggle(task)}
                     onStatusToggle={() => handleStatusToggle(task)}
                     onUnlink={() => handleUnlinkTask(task.id)}
                   />
@@ -505,6 +586,8 @@ export function DispatchPage() {
                     task={task}
                     index={i}
                     finalized={dispatch?.finalized ?? false}
+                    isCompleting={completingIds.includes(task.id)}
+                    onDoneToggle={() => handleDoneToggle(task)}
                     onStatusToggle={() => handleStatusToggle(task)}
                     onUnlink={() => handleUnlinkTask(task.id)}
                   />
@@ -671,12 +754,16 @@ function LinkedTaskRow({
   task,
   index,
   finalized,
+  isCompleting,
+  onDoneToggle,
   onStatusToggle,
   onUnlink,
 }: {
   task: Task;
   index: number;
   finalized: boolean;
+  isCompleting: boolean;
+  onDoneToggle: () => void;
   onStatusToggle: () => void;
   onUnlink: () => void;
 }) {
@@ -690,29 +777,46 @@ function LinkedTaskRow({
   return (
     <div
       className={`group flex items-center gap-3 px-4 py-3 transition-all duration-200 border-b border-neutral-100 dark:border-neutral-800/50 last:border-0 ${
-        task.status === "done" ? "opacity-60" : ""
+        task.status === "done" && !isCompleting ? "opacity-60" : ""
       } hover:bg-neutral-50 dark:hover:bg-neutral-800/30`}
     >
       <button
-        onClick={handleStatusClick}
+        onClick={onDoneToggle}
         disabled={finalized}
-        title={`Status: ${STATUS_STYLES[task.status].label} (click to cycle)`}
-        className="flex-shrink-0 disabled:cursor-default relative"
+        title={task.status === "done" ? "Mark as not done" : "Mark as done"}
+        className="flex-shrink-0 w-5 h-5 rounded border-2 border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500 transition-all active:scale-95 flex items-center justify-center disabled:cursor-default"
       >
-        <span
-          className={`block h-3 w-3 rounded-full ${STATUS_STYLES[task.status].dot} transition-colors`}
-        />
-        {ringKey > 0 && (
-          <span
-            key={ringKey}
-            className={`absolute inset-0 rounded-full animate-status-ring ${STATUS_STYLES[task.status].ring}`}
-          />
+        {(task.status === "done" || isCompleting) && (
+          <svg className="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
         )}
       </button>
 
+      {task.status !== "done" && (
+        <button
+          onClick={handleStatusClick}
+          disabled={finalized}
+          title={`Status: ${STATUS_STYLES[task.status].label} (click to toggle open/in progress)`}
+          className="flex-shrink-0 disabled:cursor-default relative"
+        >
+          <span
+            className={`block h-3 w-3 rounded-full ${STATUS_STYLES[task.status].dot} transition-colors`}
+          />
+          {ringKey > 0 && (
+            <span
+              key={ringKey}
+              className={`absolute inset-0 rounded-full animate-status-ring ${STATUS_STYLES[task.status].ring}`}
+            />
+          )}
+        </button>
+      )}
+
       <div className="flex-1 min-w-0">
         <p
-          className={`text-sm font-medium truncate dark:text-white ${task.status === "done" ? "line-through" : ""}`}
+          className={`text-sm font-medium truncate dark:text-white ${
+            task.status === "done" && !isCompleting ? "line-through" : ""
+          } ${isCompleting ? "task-title-completing" : ""}`}
         >
           {task.title}
         </p>

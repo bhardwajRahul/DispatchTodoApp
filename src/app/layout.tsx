@@ -6,6 +6,11 @@ import { AppShell } from "@/components/AppShell";
 export const metadata: Metadata = {
   title: "Dispatch",
   description: "Personal dispatch and task management",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

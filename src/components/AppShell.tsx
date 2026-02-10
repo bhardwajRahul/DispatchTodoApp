@@ -13,7 +13,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { status, update } = useSession();
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [routeLoading, setRouteLoading] = useState(false);
   const refreshAttemptedRef = useRef(false);
+  const initialRouteRef = useRef(true);
 
   useEffect(() => {
     refreshAttemptedRef.current = false;
@@ -26,6 +28,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     void update();
   }, [pathname, status, update]);
 
+  useEffect(() => {
+    if (initialRouteRef.current) {
+      initialRouteRef.current = false;
+      return;
+    }
+
+    setRouteLoading(true);
+    const timer = setTimeout(() => setRouteLoading(false), 420);
+    return () => clearTimeout(timer);
+  }, [pathname]);
+
   // Render login page without the app shell.
   if (pathname === "/login") {
     return <>{children}</>;
@@ -33,6 +46,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen">
+      <div
+        className={`pointer-events-none fixed left-0 top-0 z-[120] h-0.5 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-500 transition-all duration-500 ${
+          routeLoading ? "w-full opacity-100" : "w-0 opacity-0"
+        }`}
+      />
       <KeyboardShortcuts
         onSearchOpen={() => setSearchOpen(true)}
         onShortcutHelp={() => setShortcutHelpOpen(true)}

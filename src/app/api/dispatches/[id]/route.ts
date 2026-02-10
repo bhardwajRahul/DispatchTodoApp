@@ -1,7 +1,7 @@
 import { withAuth, jsonResponse, errorResponse } from "@/lib/api";
 import { db } from "@/db";
-import { dispatches } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { dispatches, notes } from "@/db/schema";
+import { eq, and, isNull } from "drizzle-orm";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -64,6 +64,41 @@ export const PUT = withAuth(async (req, session, ctx) => {
     .set(updates)
     .where(eq(dispatches.id, id))
     .returning();
+
+  if (summary !== undefined) {
+    const now = new Date().toISOString();
+    const noteTitle = `Daily Dispatch - ${updated.date}`;
+    const summaryContent = (summary as string).trim();
+
+    const [existingNote] = await db
+      .select({ id: notes.id })
+      .from(notes)
+      .where(
+        and(
+          eq(notes.userId, session.user!.id!),
+          eq(notes.title, noteTitle),
+          isNull(notes.deletedAt),
+        ),
+      );
+
+    if (existingNote) {
+      await db
+        .update(notes)
+        .set({
+          content: summaryContent,
+          updatedAt: now,
+        })
+        .where(eq(notes.id, existingNote.id));
+    } else {
+      await db.insert(notes).values({
+        userId: session.user!.id!,
+        title: noteTitle,
+        content: summaryContent,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
 
   return jsonResponse(updated);
 });

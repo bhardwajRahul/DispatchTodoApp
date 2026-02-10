@@ -193,17 +193,16 @@ Add a recycle bin that holds deleted tasks, notes, and projects for 30 days befo
 Address cross-page UX inconsistencies, strengthen Dispatch as a daily workflow/journal hub, add visual branding, and ensure strong multi-device responsiveness.
 
 - [X] **12.1** Ensure GitHub OAuth sign-in uses the same login transition animation sequence currently used for local credentials sign-in.
-- [ ] **12.2** Fix Project creation modal positioning bug where the popup drifts lower as project count increases.
-- [ ] **12.3** Fix Task creation modal positioning bug on the Tasks page where, when multiple tasks exist, the popup appears at the very top without expected margin.
-- [ ] **12.4** Rearrange the Dashboard "Recent Activity" section layout on the Dashboard page for clearer hierarchy and spacing. Bump the version to v0.1.1
+- [x] **12.2** Fix Project creation modal positioning bug where the popup drifts lower as project count increases.
+- [x] **12.3** Fix Task creation modal positioning bug on the Tasks page where, when multiple tasks exist, the popup appears at the very top without expected margin.
+- [x] **12.4** Rearrange the Dashboard "Recent Activity" section layout on the Dashboard page for clearer hierarchy and spacing. Bump the version to v0.1.1
 - [ ] **12.5** Persist and honor the Projects subsection collapsed state even when the full sidebar is collapsed and expanded again.
-- [ ] **12.6** Add a new **Insights** section (name candidate replacing "History") with completion trend visualizations over time (e.g., line/bar charts, selectable ranges).
-- [ ] **12.7** Update Dispatch page verbaige to explicitly position Daily Summary as examples such as a planning note or personal journal (including gratitude/reflection use).
-- [ ] **12.8** On Dispatch save, auto-create or update a same-day linked Note entry so the Daily Summary is retained in Notes history. The note name should have the date in it, "Daily Dispatch - <date>" format, this format will also make it easier to know if it should create a new note or update an existing one.
-- [ ] **12.9** Allow completion of linked tasks directly from the Dispatch page with existing optimistic update + undo behavior parity. UI elements should allow the checkboxes too.
-- [ ] **12.10** Add app branding assets: favicon (lightning bolt candidate) and initial logo treatment for app identity.
-- [ ] **12.11** There is a subtle flicker when loading any page because of the way it queries the data via API. Any way to make this smoother? Maybe the page loads but the areas that are loading have loading bars and animations to show the content once it's pulled back
-- [ ] **12.12** Validate and improve responsive behavior for iPhone-sized screens, iPad/tablet breakpoints, and smaller desktop windows.
+- [x] **12.6** Add a new **Insights** section (name candidate replacing "History") with completion trend visualizations over time (e.g., line/bar charts, selectable ranges).
+- [x] **12.7** Update Dispatch page verbaige to explicitly position Daily Summary as examples such as a planning note or personal journal (including gratitude/reflection use).
+- [x] **12.8** On Dispatch save, auto-create or update a same-day linked Note entry so the Daily Summary is retained in Notes history. The note name should have the date in it, "Daily Dispatch - <date>" format, this format will also make it easier to know if it should create a new note or update an existing one.
+- [x] **12.9** Allow completion of linked tasks directly from the Dispatch page with existing optimistic update + undo behavior parity. UI elements should allow the checkboxes too.
+- [x] **12.10** Add app branding assets: favicon (lightning bolt candidate) and initial logo treatment for app identity.
+- [x] **12.11** There is a subtle flicker when loading any page because of the way it queries the data via API. Any way to make this smoother? Maybe the page loads but the areas that are loading have loading bars and animations to show the content once it's pulled back
 
 ## Phase 13: Administration, Account Control & Data-At-Rest Security Protection
 
@@ -310,3 +309,6 @@ Browser (useChat)  ──>  POST /api/ai/chat  ──>  MCP Client (@ai-sdk/mcp)
 - [ ] **14.35** Add tool-call UI rendering in the chat interface — when the assistant calls a tool, show an inline indicator (e.g. "Creating task: Buy groceries..." with a spinner, then "Task created" with a link) so the user can see what actions the AI took. Use the AI SDK's `parts` array on messages to detect `tool-invocation` parts.
 - [ ] **14.36** Write tests for the MCP server tools: mock the Drizzle DB, register tools, invoke them via the MCP client SDK, and assert correct DB operations and response formats. Test user-scoping isolation (tools should never return or modify another user's data).
 - [ ] **14.37** Add a health-check indicator for the MCP server connection in the Personal Assistant UI — show a green/red dot or badge indicating whether the tool server is reachable. If unreachable, the assistant still works for conversation but tools are unavailable; show a warning banner explaining this.
+
+Phase 15 - Multi-Device Optimizations
+- [ ] **15.1** Validate and improve responsive behavior for iPhone-sized screens, iPad/tablet breakpoints, and smaller desktop windows.

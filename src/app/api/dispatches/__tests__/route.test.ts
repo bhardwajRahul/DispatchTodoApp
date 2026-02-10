@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mockSession } from "@/test/setup";
 import { createTestDb } from "@/test/db";
-import { users } from "@/db/schema";
+import { notes, users } from "@/db/schema";
+import { and, eq, isNull } from "drizzle-orm";
 
 // Set up a fresh in-memory DB before each test and mock @/db
 let testDb: ReturnType<typeof createTestDb>;
@@ -299,6 +300,74 @@ describe("Dispatches API", () => {
       );
       const data = await res.json();
       expect(data.updatedAt).not.toBe(created.updatedAt);
+    });
+
+    it("creates a same-day dispatch note when summary is saved", async () => {
+      const createRes = await POST(
+        jsonReq("http://localhost/api/dispatches", "POST", { date: "2025-06-15" }),
+        {}
+      );
+      const created = await createRes.json();
+
+      const res = await PUT(
+        jsonReq(`http://localhost/api/dispatches/${created.id}`, "PUT", {
+          summary: "Journal entry for the day",
+        }),
+        ctx(created.id)
+      );
+      expect(res.status).toBe(200);
+
+      const [dispatchNote] = await testDb.db
+        .select()
+        .from(notes)
+        .where(
+          and(
+            eq(notes.userId, TEST_USER.id),
+            eq(notes.title, "Daily Dispatch - 2025-06-15"),
+            isNull(notes.deletedAt),
+          )
+        );
+
+      expect(dispatchNote).toBeDefined();
+      expect(dispatchNote?.content).toBe("Journal entry for the day");
+    });
+
+    it("updates the same-day dispatch note instead of creating duplicates", async () => {
+      const createRes = await POST(
+        jsonReq("http://localhost/api/dispatches", "POST", { date: "2025-06-15" }),
+        {}
+      );
+      const created = await createRes.json();
+
+      const firstSave = await PUT(
+        jsonReq(`http://localhost/api/dispatches/${created.id}`, "PUT", {
+          summary: "Morning plan",
+        }),
+        ctx(created.id)
+      );
+      expect(firstSave.status).toBe(200);
+
+      const secondSave = await PUT(
+        jsonReq(`http://localhost/api/dispatches/${created.id}`, "PUT", {
+          summary: "Evening reflection",
+        }),
+        ctx(created.id)
+      );
+      expect(secondSave.status).toBe(200);
+
+      const dispatchNotes = await testDb.db
+        .select()
+        .from(notes)
+        .where(
+          and(
+            eq(notes.userId, TEST_USER.id),
+            eq(notes.title, "Daily Dispatch - 2025-06-15"),
+            isNull(notes.deletedAt),
+          )
+        );
+
+      expect(dispatchNotes).toHaveLength(1);
+      expect(dispatchNotes[0].content).toBe("Evening reflection");
     });
 
     it("rejects editing a finalized dispatch", async () => {

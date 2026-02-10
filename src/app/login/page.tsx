@@ -2,6 +2,7 @@ import { signIn } from "@/auth";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { LoginForm } from "./LoginForm";
+import { BrandMark } from "@/components/BrandMark";
 
 export default async function LoginPage({
   searchParams,
@@ -15,7 +16,7 @@ export default async function LoginPage({
 
   const { error } = await searchParams;
   const hasGitHub = !!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET);
-  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.1.0";
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.1.1";
 
   const errorMessages: Record<string, string> = {
     OAuthAccountNotLinked: "This GitHub account is already linked to a different user.",
@@ -37,11 +38,7 @@ export default async function LoginPage({
         <div id="login-card" className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 shadow-xl space-y-6 text-center">
           {/* Logo */}
           <div>
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 mb-4">
-              <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
-              </svg>
-            </div>
+            <BrandMark className="mb-4" />
             <h1 className="text-2xl font-bold tracking-tight dark:text-white">Dispatch</h1>
             <p className="mt-1.5 text-sm text-neutral-500 dark:text-neutral-400">Sign in to continue</p>
           </div>

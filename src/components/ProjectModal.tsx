@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { api, type Project, type ProjectStatus } from "@/lib/client";
 import { CustomSelect } from "@/components/CustomSelect";
 import { PROJECT_COLOR_OPTIONS, PROJECT_STATUS_OPTIONS } from "@/lib/projects";
@@ -24,6 +25,12 @@ export function ProjectModal({
   const [color, setColor] = useState(project?.color ?? "blue");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,8 +66,10 @@ export function ProjectModal({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto px-4 py-8 sm:py-12">
       <div
         className="absolute inset-0 bg-black/40 animate-backdrop-enter"
         onClick={onClose}
@@ -68,7 +77,7 @@ export function ProjectModal({
 
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-lg rounded-xl bg-white dark:bg-neutral-900 p-6 shadow-xl space-y-4 animate-modal-enter"
+        className="relative my-auto w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-neutral-900 space-y-4 animate-modal-enter"
       >
         <h2 className="text-lg font-semibold dark:text-white">
           {isEditing ? "Edit Project" : "New Project"}
@@ -140,6 +149,7 @@ export function ProjectModal({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }

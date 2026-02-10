@@ -104,6 +104,7 @@ export default async function Profile() {
           <ShortcutRow label="New task" keys={["n", "t"]} />
           <ShortcutRow label="New note" keys={["n", "n"]} />
           <ShortcutRow label="Go to Dispatch" keys={["g", "d"]} />
+          <ShortcutRow label="Go to Insights" keys={["g", "i"]} />
           <ShortcutRow label="Go to Tasks" keys={["g", "t"]} />
           <ShortcutRow label="Show shortcuts" keys={["?"]} />
         </div>

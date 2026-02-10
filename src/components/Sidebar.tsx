@@ -7,9 +7,11 @@ import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "@/components/ThemeProvider";
 import { api, type ProjectWithStats } from "@/lib/client";
 import { PROJECT_COLORS } from "@/lib/projects";
+import { BrandMark } from "@/components/BrandMark";
 import {
   IconGrid,
   IconCalendar,
+  IconChartBar,
   IconCheckCircle,
   IconDocument,
   IconFolder,
@@ -18,7 +20,6 @@ import {
   IconSignOut,
   IconSun,
   IconMoon,
-  IconBolt,
   IconPlus,
   IconHelp,
   IconInbox,
@@ -44,6 +45,7 @@ const OVERVIEW_NAV: NavItem[] = [
 
 const WORKSPACE_NAV: NavItem[] = [
   { href: "/dispatch", label: "Dispatch", icon: IconCalendar },
+  { href: "/insights", label: "Insights", icon: IconChartBar },
   { href: "/inbox", label: "Priority Inbox", icon: IconInbox },
   { href: "/tasks", label: "Tasks", icon: IconCheckCircle },
   { href: "/notes", label: "Notes", icon: IconDocument },
@@ -56,15 +58,22 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.1.0";
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.1.1";
+
+  const defaultSectionsOpen = useMemo(
+    () => ({
+      main: true,
+      workspace: true,
+      projects: true,
+      account: true,
+    }),
+    [],
+  );
 
   const [collapsed, setCollapsed] = useState(false);
-  const [sectionsOpen, setSectionsOpen] = useState<Record<string, boolean>>({
-    main: true,
-    workspace: true,
-    projects: true,
-    account: true,
-  });
+  const [sectionsOpen, setSectionsOpen] = useState<Record<string, boolean>>(
+    defaultSectionsOpen,
+  );
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
 
   const fetchProjects = useCallback(async () => {
@@ -92,7 +101,25 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
   useEffect(() => {
     const stored = localStorage.getItem("sidebar-collapsed");
     if (stored === "true") setCollapsed(true);
-  }, []);
+
+    const sectionState = localStorage.getItem("sidebar-sections-open");
+    if (!sectionState) return;
+
+    try {
+      const parsed = JSON.parse(sectionState) as Record<string, boolean>;
+      setSectionsOpen((prev) => ({
+        ...prev,
+        ...defaultSectionsOpen,
+        ...parsed,
+      }));
+    } catch {
+      setSectionsOpen(defaultSectionsOpen);
+    }
+  }, [defaultSectionsOpen]);
+
+  useEffect(() => {
+    localStorage.setItem("sidebar-sections-open", JSON.stringify(sectionsOpen));
+  }, [sectionsOpen]);
 
   function toggleCollapsed() {
     const next = !collapsed;
@@ -180,7 +207,7 @@ export function Sidebar({ onSearchOpen, onShortcutHelp }: SidebarProps) {
           }`}
           title={collapsed ? `Dispatch v${appVersion}` : "Go to Dashboard"}
         >
-          <IconBolt className="w-6 h-6 text-blue-400 flex-shrink-0" />
+          <BrandMark compact className="flex-shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
               <span className="text-lg font-bold text-white whitespace-nowrap">

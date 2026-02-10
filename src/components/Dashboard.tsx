@@ -24,16 +24,6 @@ export function Dashboard({ userName }: { userName: string }) {
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [dispatchCount, setDispatchCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [showSkeleton, setShowSkeleton] = useState(false);
-
-  useEffect(() => {
-    if (!loading) {
-      setShowSkeleton(false);
-      return;
-    }
-    const timer = setTimeout(() => setShowSkeleton(true), 120);
-    return () => clearTimeout(timer);
-  }, [loading]);
 
   useEffect(() => {
     let active = true;
@@ -119,6 +109,9 @@ export function Dashboard({ userName }: { userName: string }) {
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 6);
 
+  const recentTaskActivity = recentActivity.filter((item) => item.type === "task").slice(0, 4);
+  const recentNoteActivity = recentActivity.filter((item) => item.type === "note").slice(0, 4);
+
   const projectMap = new Map(projects.map((project) => [project.id, project]));
 
   const topProjects = [...projects]
@@ -156,7 +149,7 @@ export function Dashboard({ userName }: { userName: string }) {
           ? "text-emerald-500 dark:text-emerald-400"
           : "text-neutral-400 dark:text-neutral-500";
 
-  if (loading && showSkeleton) {
+  if (loading) {
     return (
       <div className="mx-auto max-w-5xl p-6">
         <div className="space-y-6">
@@ -195,9 +188,6 @@ export function Dashboard({ userName }: { userName: string }) {
         </div>
       </div>
     );
-  }
-  if (loading) {
-    return <div className="mx-auto max-w-5xl p-6" />;
   }
 
   return (
@@ -451,51 +441,96 @@ export function Dashboard({ userName }: { userName: string }) {
 
       {/* Recent Activity */}
       <section className="animate-fade-in-up" style={{ animationDelay: "250ms" }}>
-        <h2 className="text-lg font-semibold mb-3 dark:text-white">Recent Activity</h2>
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold dark:text-white">Recent Activity</h2>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Latest task updates and note edits across your workspace.
+          </p>
+        </div>
         {recentActivity.length === 0 ? (
           <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-8 text-center">
             <IconCalendar className="w-8 h-8 text-neutral-300 dark:text-neutral-600 mx-auto mb-2" />
             <p className="text-sm text-neutral-400 dark:text-neutral-500">No activity yet</p>
           </div>
         ) : (
-          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
-            <ul className="border-l border-neutral-200 dark:border-neutral-800/70 pl-6 space-y-4">
-              {recentActivity.map((item) => {
-                const dotClass =
-                  item.type === "note"
-                    ? "bg-purple-500"
-                    : item.status === "done"
-                      ? "bg-green-500"
-                      : item.status === "in_progress"
-                        ? "bg-yellow-500"
-                        : "bg-blue-500";
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ActivityCard
+              title="Task Activity"
+              emptyMessage="No task updates in this window."
+              items={recentTaskActivity}
+            />
+            <ActivityCard
+              title="Note Activity"
+              emptyMessage="No note updates in this window."
+              items={recentNoteActivity}
+            />
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
 
-                const label =
-                  item.type === "note"
-                    ? "Updated note"
-                    : item.status === "done"
-                      ? "Completed task"
-                      : "Updated task";
+function ActivityCard({
+  title,
+  emptyMessage,
+  items,
+}: {
+  title: string;
+  emptyMessage: string;
+  items: Array<{
+    id: string;
+    type: "task" | "note";
+    title: string;
+    date: string;
+    status?: TaskStatus;
+  }>;
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
+      <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">{title}</h3>
+      {items.length === 0 ? (
+        <p className="text-xs text-neutral-400 dark:text-neutral-500">{emptyMessage}</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((item) => {
+            const dotClass =
+              item.type === "note"
+                ? "bg-purple-500"
+                : item.status === "done"
+                  ? "bg-green-500"
+                  : item.status === "in_progress"
+                    ? "bg-yellow-500"
+                    : "bg-blue-500";
 
-                return (
-                  <li key={item.id} className="relative">
-                    <span
-                      className={`absolute -left-[12px] top-1.5 h-2.5 w-2.5 rounded-full ${dotClass}`}
-                    />
-                    <p className="text-sm text-neutral-700 dark:text-neutral-300">
-                      <span className="font-medium">{label}:</span>{" "}
-                      <span className="text-neutral-600 dark:text-neutral-300">{item.title}</span>
+            const label =
+              item.type === "note"
+                ? "Updated note"
+                : item.status === "done"
+                  ? "Completed task"
+                  : "Updated task";
+
+            return (
+              <li
+                key={item.id}
+                className="rounded-lg border border-neutral-200/70 dark:border-neutral-800/80 bg-neutral-50/70 dark:bg-neutral-950/40 px-3 py-2"
+              >
+                <div className="flex items-start gap-2">
+                  <span className={`mt-1.5 h-2 w-2 rounded-full ${dotClass}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-neutral-700 dark:text-neutral-300 truncate">
+                      <span className="font-medium">{label}:</span> {item.title}
                     </p>
                     <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
                       {new Date(item.date).toLocaleString()}
                     </p>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </section>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

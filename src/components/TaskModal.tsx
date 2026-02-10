@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   api,
   type Task,
@@ -37,6 +38,12 @@ export function TaskModal({
   const [projects, setProjects] = useState<Project[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -110,18 +117,18 @@ export function TaskModal({
       })),
   ];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto px-4 py-8 sm:py-12">
       <div
         className="absolute inset-0 bg-black/40 animate-backdrop-enter"
         onClick={onClose}
       />
 
-      {/* Modal */}
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-2xl rounded-xl bg-white dark:bg-neutral-900 p-6 shadow-xl space-y-4 animate-modal-enter"
+        className="relative my-auto w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl dark:bg-neutral-900 space-y-4 animate-modal-enter"
       >
         <h2 className="text-lg font-semibold dark:text-white">
           {isEditing ? "Edit Task" : "New Task"}
@@ -215,7 +222,8 @@ export function TaskModal({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -22,6 +22,14 @@ export function IconCalendar({ className = "w-5 h-5" }: { className?: string }) 
   );
 }
 
+export function IconChartBar({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 19.5h16.5M7.5 16.5V9.75m4.5 6.75V6.75m4.5 9.75V12" />
+    </svg>
+  );
+}
+
 export function IconCheckCircle({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

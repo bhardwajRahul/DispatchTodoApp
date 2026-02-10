@@ -54,7 +54,7 @@ export function KeyboardShortcuts({
 
       // Escape — close overlays (handled by individual overlays)
 
-      // Sequence-based shortcuts: g+d, g+t, g+n, g+h, n+t, n+n
+      // Sequence-based shortcuts: g+d, g+i, g+t, g+n, g+h, n+t, n+n
       const key = e.key.toLowerCase();
       const lastKey = lastKeyRef.current;
 
@@ -65,6 +65,10 @@ export function KeyboardShortcuts({
           case "d":
             e.preventDefault();
             router.push("/dispatch");
+            return;
+          case "i":
+            e.preventDefault();
+            router.push("/insights");
             return;
           case "t":
             e.preventDefault();
