@@ -373,3 +373,4 @@ Systematically simplify the codebase, remove unused tooling/dependencies, and re
 
 Phase 17 - Multi-Device Optimizations
 - [ ] **17.1** Validate and improve responsive behavior for iPhone-sized screens, iPad/tablet breakpoints, and smaller desktop windows.
+- [ ] **17.2** Add an integrated Admin page version status check that compares the running app version against the latest version published on `https://github.com/nkasco/DispatchTodoApp`, and clearly indicates whether the platform is up to date.
