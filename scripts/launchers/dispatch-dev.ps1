@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Dispatch developer launcher for the Dispatch task management app.
 
@@ -6,7 +6,7 @@
     Provides commands to set up, start, update, and manage your Dispatch instance.
 
 .PARAMETER Command
-    The command to run: setup, dev, start, build, update, seed, studio, test, publish, resetdb, freshstart, help
+    The command to run: setup, dev, start, build, update, updateself, seed, studio, test, publish, resetdb, freshstart, help
 
 .EXAMPLE
     .\scripts\launchers\dispatch-dev.ps1 setup
@@ -17,7 +17,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("setup", "dev", "start", "build", "update", "seed", "studio", "test", "lint", "publish", "resetdb", "freshstart", "help", "version", "")]
+    [ValidateSet("setup", "dev", "start", "build", "update", "updateself", "seed", "studio", "test", "lint", "publish", "resetdb", "freshstart", "help", "version", "")]
     [string]$Command = "",
     [Parameter(Position = 1)]
     [ValidateSet("", "full")]
@@ -27,6 +27,11 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ScriptFilePath = Join-Path $PSScriptRoot "dispatch-dev.ps1"
+$RepoOwner = "nkasco"
+$RepoName = "DispatchTodoApp"
+$RepoApiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName"
+$ScriptRepoPath = "scripts/launchers/dispatch-dev.ps1"
 
 # ── Version ───────────────────────────────────────────────────
 $PackageJson = Get-Content -Raw -Path "$RepoRoot\package.json" | ConvertFrom-Json
@@ -77,6 +82,7 @@ function Show-Help {
         @{ Cmd = "start";   Desc = "Start the production server" }
         @{ Cmd = "build";   Desc = "Create a production build" }
         @{ Cmd = "update";  Desc = "Pull latest changes, install deps, run migrations" }
+        @{ Cmd = "updateself"; Desc = "Download the latest version of this launcher from GitHub" }
         @{ Cmd = "seed";    Desc = "Load sample data into the database" }
         @{ Cmd = "studio";  Desc = "Open Drizzle Studio (database GUI)" }
         @{ Cmd = "test";    Desc = "Run the test suite" }
@@ -134,6 +140,19 @@ function Prompt-YesNo {
             default { Write-YellowLn "  Enter y or n." }
         }
     }
+}
+
+function Get-RepoDefaultBranch {
+    try {
+        $repo = Invoke-RestMethod -Method Get -Uri $RepoApiUrl -Headers @{ "User-Agent" = "DispatchLauncher" }
+        if ($repo -and $repo.default_branch) {
+            return [string]$repo.default_branch
+        }
+    } catch {
+        # Fallback handled below.
+    }
+
+    return "main"
 }
 
 # ── Commands ──────────────────────────────────────────────────
@@ -276,6 +295,53 @@ function Invoke-Update {
 
     Write-GreenLn "  Update complete!"
     Write-Host ""
+}
+
+function Invoke-UpdateSelf {
+    Show-Logo
+
+    $defaultBranch = Get-RepoDefaultBranch
+    $candidateUrls = @(
+        "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$defaultBranch/$ScriptRepoPath"
+    )
+    if ($defaultBranch -ne "main") {
+        $candidateUrls += "https://raw.githubusercontent.com/$RepoOwner/$RepoName/main/$ScriptRepoPath"
+    }
+    if ($defaultBranch -ne "master") {
+        $candidateUrls += "https://raw.githubusercontent.com/$RepoOwner/$RepoName/master/$ScriptRepoPath"
+    }
+    $candidateUrls = $candidateUrls | Select-Object -Unique
+
+    $tempPath = [System.IO.Path]::GetTempFileName()
+    $downloadedFrom = $null
+    try {
+        foreach ($url in $candidateUrls) {
+            try {
+                Invoke-WebRequest -Uri $url -Headers @{ "User-Agent" = "DispatchLauncher" } -OutFile $tempPath
+                if ((Get-Item $tempPath).Length -gt 0) {
+                    $downloadedFrom = $url
+                    break
+                }
+            } catch {
+                # Try next candidate URL.
+            }
+        }
+
+        if (-not $downloadedFrom) {
+            Write-RedLn "  Failed to download latest script from GitHub."
+            exit 1
+        }
+
+        Move-Item -Path $tempPath -Destination $ScriptFilePath -Force
+        $tempPath = $null
+        Write-GreenLn "  Updated launcher from: $downloadedFrom"
+        Write-DimLn "  Saved to: $ScriptFilePath"
+        Write-Host ""
+    } finally {
+        if ($tempPath -and (Test-Path $tempPath)) {
+            Remove-Item -Path $tempPath -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Invoke-Seed {
@@ -459,6 +525,7 @@ switch ($Command) {
     "start"   { Invoke-Start }
     "build"   { Invoke-Build }
     "update"  { Invoke-Update }
+    "updateself" { Invoke-UpdateSelf }
     "seed"    { Invoke-Seed }
     "studio"  { Invoke-Studio }
     "test"    { Invoke-Test }

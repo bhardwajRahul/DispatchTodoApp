@@ -4,11 +4,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+SCRIPT_FILE="$SCRIPT_DIR/dispatch.sh"
 
 ENV_FILE="$SCRIPT_DIR/.env.prod"
 PACKAGE_META="$(node -e 'const p=require("./package.json"); const name=((p.name||"dispatch").replace(/[-_]+/g," ").toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())); const version=p.version||"0.0.0"; process.stdout.write(name + "|" + version);' 2>/dev/null || echo "Dispatch|0.0.0")"
 IFS='|' read -r APP_NAME VERSION <<< "$PACKAGE_META"
 VERSION_MONIKER="${APP_NAME} v${VERSION}"
+REPO_OWNER="nkasco"
+REPO_NAME="DispatchTodoApp"
+SCRIPT_REPO_PATH="dispatch.sh"
 
 RESET="\033[0m"
 BOLD="\033[1m"
@@ -45,6 +49,7 @@ show_help() {
   echo "    pull       Pull latest image and restart"
   echo "    freshstart Remove containers and volumes, then start fresh"
   echo "    down       Stop and remove containers/network"
+  echo "    updateself Download the latest version of this launcher from GitHub"
   echo "    version    Show version number"
   echo "    help       Show this help message"
   echo ""
@@ -205,6 +210,46 @@ run_compose() {
   docker compose --env-file "$ENV_FILE" "$@"
 }
 
+has_http_client() {
+  command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1
+}
+
+download_to_file() {
+  local url="$1"
+  local output_file="$2"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url" -o "$output_file"
+    return $?
+  fi
+
+  if command -v wget >/dev/null 2>&1; then
+    wget -q -O "$output_file" "$url"
+    return $?
+  fi
+
+  return 1
+}
+
+get_repo_default_branch() {
+  local api_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}"
+  local payload=""
+  local branch=""
+
+  if command -v curl >/dev/null 2>&1; then
+    payload="$(curl -fsSL -H "Accept: application/vnd.github+json" -H "User-Agent: DispatchLauncher" "$api_url" 2>/dev/null || true)"
+  elif command -v wget >/dev/null 2>&1; then
+    payload="$(wget -q -O - "$api_url" 2>/dev/null || true)"
+  fi
+
+  branch="$(printf "%s" "$payload" | sed -n 's/.*"default_branch"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  if [ -z "$branch" ]; then
+    branch="main"
+  fi
+
+  echo "$branch"
+}
+
 get_compose_project_name() {
   if [ -n "${COMPOSE_PROJECT_NAME:-}" ]; then
     echo "$COMPOSE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]'
@@ -334,6 +379,54 @@ cmd_down() {
   run_compose down
 }
 
+cmd_updateself() {
+  show_logo
+
+  if ! has_http_client; then
+    echo -e "${RED}Missing HTTP client. Install curl or wget to use updateself.${RESET}"
+    exit 1
+  fi
+
+  local default_branch
+  default_branch="$(get_repo_default_branch)"
+  local candidate_urls=(
+    "https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${default_branch}/${SCRIPT_REPO_PATH}"
+  )
+
+  if [ "$default_branch" != "main" ]; then
+    candidate_urls+=("https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${SCRIPT_REPO_PATH}")
+  fi
+  if [ "$default_branch" != "master" ]; then
+    candidate_urls+=("https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/master/${SCRIPT_REPO_PATH}")
+  fi
+
+  local tmp_file
+  tmp_file="$(mktemp)"
+  trap 'rm -f "$tmp_file"' RETURN
+
+  local downloaded_url=""
+  for url in "${candidate_urls[@]}"; do
+    if download_to_file "$url" "$tmp_file"; then
+      downloaded_url="$url"
+      break
+    fi
+  done
+
+  if [ -z "$downloaded_url" ] || [ ! -s "$tmp_file" ]; then
+    echo -e "${RED}Failed to download latest script from GitHub.${RESET}"
+    exit 1
+  fi
+
+  mv "$tmp_file" "$SCRIPT_FILE"
+  trap - RETURN
+  if command -v chmod >/dev/null 2>&1; then
+    chmod +x "$SCRIPT_FILE" || true
+  fi
+
+  echo -e "${GREEN}Updated launcher from:${RESET} ${downloaded_url}"
+  echo -e "${DIM}Saved to: $SCRIPT_FILE${RESET}"
+}
+
 cmd_pull() {
   show_logo
   assert_docker
@@ -371,6 +464,7 @@ case "$COMMAND" in
   logs) cmd_logs ;;
   status) cmd_status ;;
   down) cmd_down ;;
+  updateself) cmd_updateself ;;
   pull) cmd_pull ;;
   freshstart) cmd_freshstart ;;
   version) echo "${VERSION_MONIKER}" ;;

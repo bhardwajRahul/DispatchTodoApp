@@ -12,6 +12,7 @@
 #   start    Start the production server
 #   build    Create a production build
 #   update   Pull latest, install deps, run migrations
+#   updateself Download latest version of this launcher script
 #   seed     Load sample data
 #   studio   Open Drizzle Studio (database GUI)
 #   test     Run the test suite
@@ -26,7 +27,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_FILE="$SCRIPT_DIR/dispatch-dev.sh"
 cd "$REPO_ROOT"
+REPO_OWNER="nkasco"
+REPO_NAME="DispatchTodoApp"
+SCRIPT_REPO_PATH="scripts/launchers/dispatch-dev.sh"
 
 # ── Version ───────────────────────────────────────────────────
 PACKAGE_META="$(node -e 'const p=require("./package.json"); const name=((p.name||"dispatch").replace(/[-_]+/g," ").toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())); const version=p.version||"0.0.0"; process.stdout.write(name + "|" + version);' 2>/dev/null || echo "Dispatch|0.0.0")"
@@ -79,6 +84,7 @@ show_help() {
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "start"   "Start the production server"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "build"   "Create a production build"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "update"  "Pull latest changes, install deps, run migrations"
+    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "updateself" "Download the latest version of this launcher from GitHub"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "seed"    "Load sample data into the database"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "studio"  "Open Drizzle Studio (database GUI)"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "test"    "Run the test suite"
@@ -129,6 +135,75 @@ get_env_file_value() {
     done < ".env.local"
 
     return 1
+}
+
+prompt_yes_no() {
+    local message="$1"
+    local default_yes="${2:-false}"
+    local suffix="N"
+    local answer=""
+
+    if [ "$default_yes" = "true" ]; then
+        suffix="Y"
+    fi
+
+    while true; do
+        read -r -p "$message [y/n] (default: $suffix): " answer
+        answer="$(echo "$answer" | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
+
+        if [ -z "$answer" ]; then
+            if [ "$default_yes" = "true" ]; then
+                return 0
+            fi
+            return 1
+        fi
+
+        case "$answer" in
+            y|yes) return 0 ;;
+            n|no) return 1 ;;
+            *) echo -e "  ${YELLOW}Enter y or n.${RESET}" ;;
+        esac
+    done
+}
+
+has_http_client() {
+    command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1
+}
+
+download_to_file() {
+    local url="$1"
+    local output_file="$2"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$url" -o "$output_file"
+        return $?
+    fi
+
+    if command -v wget >/dev/null 2>&1; then
+        wget -q -O "$output_file" "$url"
+        return $?
+    fi
+
+    return 1
+}
+
+get_repo_default_branch() {
+    local api_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}"
+    local payload=""
+    local branch=""
+
+    if command -v curl >/dev/null 2>&1; then
+        payload="$(curl -fsSL -H "Accept: application/vnd.github+json" -H "User-Agent: DispatchLauncher" "$api_url" 2>/dev/null || true)"
+    elif command -v wget >/dev/null 2>&1; then
+        payload="$(wget -q -O - "$api_url" 2>/dev/null || true)"
+    fi
+
+    branch="$(printf "%s" "$payload" | sed -n 's/.*"default_branch"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+    if [ -z "$branch" ]; then
+        branch="main"
+    fi
+
+    echo "$branch"
 }
 
 # ── Commands ──────────────────────────────────────────────────
@@ -251,6 +326,54 @@ cmd_update() {
     echo ""
 
     echo -e "  ${GREEN}Update complete!${RESET}"
+    echo ""
+}
+
+cmd_updateself() {
+    show_logo
+
+    if ! has_http_client; then
+        echo -e "  ${RED}Missing HTTP client. Install curl or wget to use updateself.${RESET}"
+        exit 1
+    fi
+
+    local default_branch
+    default_branch="$(get_repo_default_branch)"
+    local candidate_urls=(
+        "https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${default_branch}/${SCRIPT_REPO_PATH}"
+    )
+    if [ "$default_branch" != "main" ]; then
+        candidate_urls+=("https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${SCRIPT_REPO_PATH}")
+    fi
+    if [ "$default_branch" != "master" ]; then
+        candidate_urls+=("https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/master/${SCRIPT_REPO_PATH}")
+    fi
+
+    local tmp_file
+    tmp_file="$(mktemp)"
+    trap 'rm -f "$tmp_file"' RETURN
+
+    local downloaded_url=""
+    for url in "${candidate_urls[@]}"; do
+        if download_to_file "$url" "$tmp_file"; then
+            downloaded_url="$url"
+            break
+        fi
+    done
+
+    if [ -z "$downloaded_url" ] || [ ! -s "$tmp_file" ]; then
+        echo -e "  ${RED}Failed to download latest script from GitHub.${RESET}"
+        exit 1
+    fi
+
+    mv "$tmp_file" "$SCRIPT_FILE"
+    trap - RETURN
+    if command -v chmod >/dev/null 2>&1; then
+        chmod +x "$SCRIPT_FILE" || true
+    fi
+
+    echo -e "  ${GREEN}Updated launcher from:${RESET} ${downloaded_url}"
+    echo -e "  ${DIM}Saved to: $SCRIPT_FILE${RESET}"
     echo ""
 }
 
@@ -383,6 +506,7 @@ case "$COMMAND" in
     start)   cmd_start ;;
     build)   cmd_build ;;
     update)  cmd_update ;;
+    updateself) cmd_updateself ;;
     seed)    cmd_seed ;;
     studio)  cmd_studio ;;
     test)    cmd_test ;;

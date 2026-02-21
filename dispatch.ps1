@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Dispatch production launcher.
 
@@ -8,7 +8,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("setup", "start", "stop", "restart", "logs", "status", "down", "pull", "freshstart", "help", "version", "")]
+    [ValidateSet("setup", "start", "stop", "restart", "logs", "status", "down", "pull", "freshstart", "updateself", "help", "version", "")]
     [string]$Command = ""
 )
 
@@ -16,7 +16,12 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $ScriptRoot = $PSScriptRoot
+$ScriptFilePath = Join-Path $ScriptRoot "dispatch.ps1"
 $EnvFilePath = Join-Path $ScriptRoot ".env.prod"
+$RepoOwner = "nkasco"
+$RepoName = "DispatchTodoApp"
+$RepoApiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName"
+$ScriptRepoPath = "dispatch.ps1"
 
 $PackageJson = Get-Content -Raw -Path (Join-Path $ScriptRoot "package.json") | ConvertFrom-Json
 $Version = $PackageJson.version
@@ -64,6 +69,7 @@ function Show-Help {
     Write-Host "    pull       Pull latest image and restart"
     Write-Host "    freshstart Remove containers and volumes, then start fresh"
     Write-Host "    down       Stop and remove containers/network"
+    Write-Host "    updateself Download the latest version of this launcher from GitHub"
     Write-Host "    version    Show version number"
     Write-Host "    help       Show this help message"
     Write-Host ""
@@ -218,6 +224,19 @@ function Run-Compose {
     }
 }
 
+function Get-RepoDefaultBranch {
+    try {
+        $repo = Invoke-RestMethod -Method Get -Uri $RepoApiUrl -Headers @{ "User-Agent" = "DispatchLauncher" }
+        if ($repo -and $repo.default_branch) {
+            return [string]$repo.default_branch
+        }
+    } catch {
+        # Fallback handled below.
+    }
+
+    return "main"
+}
+
 function Get-ComposeProjectName {
     if ($env:COMPOSE_PROJECT_NAME -and $env:COMPOSE_PROJECT_NAME.Trim().Length -gt 0) {
         return $env:COMPOSE_PROJECT_NAME.Trim().ToLowerInvariant()
@@ -347,6 +366,52 @@ function Invoke-Down {
     Run-Compose -ComposeArgs @("down")
 }
 
+function Invoke-UpdateSelf {
+    Show-Logo
+
+    $defaultBranch = Get-RepoDefaultBranch
+    $candidateUrls = @(
+        "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$defaultBranch/$ScriptRepoPath"
+    )
+    if ($defaultBranch -ne "main") {
+        $candidateUrls += "https://raw.githubusercontent.com/$RepoOwner/$RepoName/main/$ScriptRepoPath"
+    }
+    if ($defaultBranch -ne "master") {
+        $candidateUrls += "https://raw.githubusercontent.com/$RepoOwner/$RepoName/master/$ScriptRepoPath"
+    }
+    $candidateUrls = $candidateUrls | Select-Object -Unique
+
+    $tempPath = [System.IO.Path]::GetTempFileName()
+    $downloadedFrom = $null
+    try {
+        foreach ($url in $candidateUrls) {
+            try {
+                Invoke-WebRequest -Uri $url -Headers @{ "User-Agent" = "DispatchLauncher" } -OutFile $tempPath
+                if ((Get-Item $tempPath).Length -gt 0) {
+                    $downloadedFrom = $url
+                    break
+                }
+            } catch {
+                # Try next candidate URL.
+            }
+        }
+
+        if (-not $downloadedFrom) {
+            Write-RedLn "Failed to download latest script from GitHub."
+            exit 1
+        }
+
+        Move-Item -Path $tempPath -Destination $ScriptFilePath -Force
+        $tempPath = $null
+        Write-GreenLn "Updated launcher from: $downloadedFrom"
+        Write-DimLn "Saved to: $ScriptFilePath"
+    } finally {
+        if ($tempPath -and (Test-Path $tempPath)) {
+            Remove-Item -Path $tempPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Invoke-Pull {
     Show-Logo
     Assert-Docker
@@ -383,6 +448,7 @@ switch ($Command) {
     "logs" { Invoke-Logs }
     "status" { Invoke-Status }
     "down" { Invoke-Down }
+    "updateself" { Invoke-UpdateSelf }
     "pull" { Invoke-Pull }
     "freshstart" { Invoke-FreshStart }
     "version" { Write-Host $VersionMoniker }
