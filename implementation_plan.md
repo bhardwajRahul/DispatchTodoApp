@@ -384,14 +384,14 @@ Phase 17 - Multi-Device Optimizations
 - [x] **17.10** Add an admin-configurable setting to disable new user creation/registration globally; when enabled, block all user-creation paths (credentials registration UI and related API endpoints) and return a clear message such as "User creation is disabled by the administrator."
 - [x] **17.11** Fix credentials auth email normalization mismatch so registration and login behave consistently: normalize email input (`trim().toLowerCase()`) in credentials sign-in/authorize flow (and shared auth paths as needed), then add regression coverage for mixed-case and whitespace email sign-in.
 
-## Phase 18: Profile Export Interoperability
+## Phase 18: Profile Export and Connector Interoperability
 
-Add profile-level export options that let a user migrate Dispatch data into external todo app formats, using format-specific optimization rules instead of a one-size-fits-all export.
+Add profile-level export options that let a user migrate Dispatch data into external task-system formats, using format-specific optimization rules instead of a one-size-fits-all export.
 
 ### 18A - Profile UX and Export Surface
 
 - [ ] **18.1** Add a new **Exports** section to `/profile` with a format picker, export scope controls (tasks only, tasks + projects, include completed, date range), and an "Export" action.
-- [ ] **18.2** Add format descriptions in the UI so each option clearly states target apps and known compatibility constraints before export.
+- [ ] **18.2** Add format descriptions in the UI so each option clearly states target system categories and known compatibility constraints before export.
 - [ ] **18.3** Add an export preview summary (record counts, omitted fields, fallback mappings) before file generation.
 
 ### 18B - Export Engine and API
@@ -403,9 +403,9 @@ Add profile-level export options that let a user migrate Dispatch data into exte
 
 ### 18C - Initial Format Targets (Optimized Per Format)
 
-- [ ] **18.8** Add **Todoist CSV** export adapter with column mapping tailored to Todoist import expectations (content, description, priority, due date, labels/project mapping).
-- [ ] **18.9** Add **Todo.txt** export adapter optimized for plain-text task tools (priority token, due dates, project/context tags, completion markers).
-- [ ] **18.10** Add **iCalendar (.ics)** export adapter (VTODO-first, VEVENT fallback where needed) for ecosystems that import calendar/task feeds.
+- [ ] **18.8** Add a **structured CSV** export adapter with column mapping for broad importer compatibility (content, description, priority, due date, labels/project mapping).
+- [ ] **18.9** Add a **plain-text task format** export adapter optimized for text-first task tools (priority token, due dates, project/context tags, completion markers).
+- [ ] **18.10** Add an **iCalendar (.ics)** export adapter (VTODO-first, VEVENT fallback where needed) for ecosystems that import calendar/task feeds.
 - [ ] **18.11** Add per-format validation and warning reports so unsupported Dispatch fields are surfaced explicitly instead of silently dropped.
 
 ### 18D - Quality, Safety, and Documentation
@@ -419,16 +419,16 @@ Add profile-level export options that let a user migrate Dispatch data into exte
 
 - [ ] **18.16** Extend the Integrations page with an **External Task Connectors** section showing connector status, last sync time, error state, and manual re-sync controls.
 - [ ] **18.17** Build a connector framework (`src/lib/integrations/connectors/`) with provider adapters, encrypted token storage, per-user connection records, and capability flags (push-only, pull-only, bi-directional).
-- [ ] **18.18** Add a **Todoist connector** using Todoist API v1 OAuth/token flow with project/task mapping tables so Dispatch creates/updates propagate to Todoist via API.
-- [ ] **18.19** Add Todoist webhook ingestion endpoint(s) to support near-real-time external change detection and incremental reconciliation without full re-sync on every cycle.
+- [ ] **18.18** Add a **REST/OAuth task connector** using token-based auth flow with project/task mapping tables so Dispatch creates/updates propagate to connected systems via API.
+- [ ] **18.19** Add webhook ingestion endpoint(s) for connector adapters to support near-real-time external change detection and incremental reconciliation without full re-sync on every cycle.
 - [ ] **18.20** Implement a durable outbound sync pipeline (change log/outbox + retry + idempotency keys + backoff) so any Dispatch task mutation is reliably delivered to active connectors.
 - [ ] **18.21** Add conflict resolution policy (last-write-wins by default, with per-item conflict markers) and a sync audit log visible from Integrations for debugging.
-- [ ] **18.22** Add an **iCalendar ecosystem connector path** via CalDAV-compatible servers (where configured) for VTODO/VEVENT sync, while retaining `.ics` file export for import-only targets.
-- [ ] **18.23** Mark **todo.txt** as export-only in v1 sync scope (no standard remote API), and optionally define a future file-sync adapter track (Dropbox/Drive/Git) as a separate phase.
+- [ ] **18.22** Add a **calendar-standard connector path** via CalDAV-compatible servers (where configured) for VTODO/VEVENT sync, while retaining `.ics` file export for import-only targets.
+- [ ] **18.23** Mark **plain-text task formats** as export-only in v1 sync scope (no standard remote API), and optionally define a future file-sync adapter track as a separate phase.
 
-### 18F - Things 3 Integration Option
+### 18F - Local Automation Connector Option
 
-- [ ] **18.24** Add a **Things 3** connector option in Integrations with explicit capability labels: no public Things Cloud API, local automation only, and Apple-platform requirements.
-- [ ] **18.25** Implement a **Things URL Scheme** adapter for outbound create/update flows (`things:///add`, `things:///update`, JSON commands) using user-provided auth token handling and field mapping from Dispatch tasks/projects.
-- [ ] **18.26** Add an optional macOS-only local bridge mode (AppleScript/Shortcuts runner) for richer Things automation where URL-scheme coverage is insufficient.
-- [ ] **18.27** Scope v1 Things sync to **Dispatch -> Things push** plus manual/periodic reconciliation, and defer true bidirectional sync unless/ until a supported API surface becomes available.
+- [ ] **18.24** Add a **local-automation connector** option in Integrations with explicit capability labels: no public cloud API, local automation only, and platform requirements.
+- [ ] **18.25** Implement a **URI-scheme adapter** for outbound create/update flows (for example `app:///add`, `app:///update`, JSON command payloads) using user-provided auth token handling and field mapping from Dispatch tasks/projects.
+- [ ] **18.26** Add an optional desktop-only local bridge mode (script/automation runner) for richer automation where URI-scheme coverage is insufficient.
+- [ ] **18.27** Scope v1 local-automation sync to **Dispatch -> external system push** plus manual/periodic reconciliation, and defer true bidirectional sync unless/ until a supported API surface becomes available.
