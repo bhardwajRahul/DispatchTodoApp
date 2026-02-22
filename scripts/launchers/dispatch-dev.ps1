@@ -6,7 +6,7 @@
     Provides commands to set up, start, update, and manage your Dispatch instance.
 
 .PARAMETER Command
-    The command to run: setup, dev, start, build, update, updateself, seed, studio, test, publish, resetdb, freshstart, help
+    The command to run: setup, dev, start, build, update, updateself, seed, studio, test, publish, publishpreprod, resetdb, freshstart, help
 
 .EXAMPLE
     .\scripts\launchers\dispatch-dev.ps1 setup
@@ -17,7 +17,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("setup", "dev", "start", "build", "update", "updateself", "seed", "studio", "test", "lint", "publish", "resetdb", "freshstart", "help", "version", "")]
+    [ValidateSet("setup", "dev", "start", "build", "update", "updateself", "seed", "studio", "test", "lint", "publish", "publishpreprod", "resetdb", "freshstart", "help", "version", "")]
     [string]$Command = "",
     [Parameter(Position = 1)]
     [ValidateSet("", "full")]
@@ -88,6 +88,7 @@ function Show-Help {
         @{ Cmd = "test";    Desc = "Run the test suite" }
         @{ Cmd = "lint";    Desc = "Run ESLint" }
         @{ Cmd = "publish"; Desc = "Publish amd64 image + additional arm64 image" }
+        @{ Cmd = "publishpreprod"; Desc = "Publish amd64-only preprod image tag (no arm64 build)" }
         @{ Cmd = "resetdb"; Desc = "Remove dev Docker volumes (fresh SQLite state)" }
         @{ Cmd = "freshstart"; Desc = "Run full dev cleanup (containers, volumes, local images)" }
         @{ Cmd = "version"; Desc = "Show version number" }
@@ -96,7 +97,7 @@ function Show-Help {
 
     foreach ($c in $commands) {
         Write-Host "    " -NoNewline
-        Write-Host ("{0,-11}" -f $c.Cmd) -ForegroundColor Cyan -NoNewline
+        Write-Host ("{0,-15}" -f $c.Cmd) -ForegroundColor Cyan -NoNewline
         Write-Host $c.Desc -ForegroundColor DarkGray
     }
     Write-Host ""
@@ -431,6 +432,25 @@ function Get-ArmImageTag {
     return "${repo}:$tag-arm64"
 }
 
+function Get-PreprodImageTag {
+    param([string]$Image)
+
+    if ($Image.Contains("@")) {
+        Write-RedLn "  Digest-based image references are not supported for preprod tag derivation: $Image"
+        exit 1
+    }
+
+    $lastSlash = $Image.LastIndexOf("/")
+    $lastColon = $Image.LastIndexOf(":")
+    if ($lastColon -gt $lastSlash) {
+        $repo = $Image.Substring(0, $lastColon)
+    } else {
+        $repo = $Image
+    }
+
+    return "${repo}:preprod"
+}
+
 function Ensure-BuildxBuilder {
     param([string]$Name = "dispatch-multiarch")
 
@@ -548,6 +568,79 @@ function Invoke-Publish {
     Write-Host ""
 }
 
+function Invoke-PublishPreprod {
+    Show-Logo
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+        Write-RedLn "  Docker is not installed or not on PATH."
+        exit 1
+    }
+
+    Set-Location $RepoRoot
+    $envFile = "$RepoRoot\.env.local"
+
+    $sourceImage = if ($env:DISPATCH_DEV_IMAGE) {
+        $env:DISPATCH_DEV_IMAGE
+    } else {
+        Get-EnvValueFromFile -Path $envFile -Key "DISPATCH_DEV_IMAGE"
+    }
+    if (-not $sourceImage) {
+        $sourceImage = "dispatch:latest"
+    }
+
+    $targetImage = if ($env:DISPATCH_PREPROD_IMAGE) {
+        $env:DISPATCH_PREPROD_IMAGE
+    } else {
+        Get-EnvValueFromFile -Path $envFile -Key "DISPATCH_PREPROD_IMAGE"
+    }
+    if (-not $targetImage) {
+        $baseImage = if ($env:DISPATCH_IMAGE) {
+            $env:DISPATCH_IMAGE
+        } else {
+            Get-EnvValueFromFile -Path $envFile -Key "DISPATCH_IMAGE"
+        }
+        if (-not $baseImage) {
+            $baseImage = "ghcr.io/nkasco/dispatchtodoapp:latest"
+        }
+        $targetImage = Get-PreprodImageTag -Image $baseImage
+    }
+
+    Write-Host "  [1/3] " -NoNewline; Write-CyanLn "Building image ($sourceImage) with docker-compose.dev.yml..."
+    if (Test-Path $envFile) {
+        docker compose -f docker-compose.dev.yml --env-file .env.local build
+    } else {
+        docker compose -f docker-compose.dev.yml build
+    }
+    if ($LASTEXITCODE -ne 0) {
+        Write-RedLn "  Docker build failed."
+        exit $LASTEXITCODE
+    }
+    Write-Host ""
+
+    Write-Host "  [2/3] " -NoNewline; Write-CyanLn "Tagging image for preprod target ($targetImage)..."
+    if ($sourceImage -ne $targetImage) {
+        docker tag $sourceImage $targetImage
+        if ($LASTEXITCODE -ne 0) {
+            Write-RedLn "  Docker tag failed."
+            exit $LASTEXITCODE
+        }
+    } else {
+        Write-DimLn "  Source and target image are identical; skipping tag."
+    }
+    Write-Host ""
+
+    Write-Host "  [3/3] " -NoNewline; Write-CyanLn "Pushing preprod image ($targetImage)..."
+    docker push $targetImage
+    if ($LASTEXITCODE -ne 0) {
+        Write-RedLn "  Docker push failed. Make sure you are logged into the target registry."
+        exit $LASTEXITCODE
+    }
+    Write-Host ""
+
+    Write-GreenLn "  Preprod publish complete (amd64 only):"
+    Write-DimLn "    image: $targetImage"
+    Write-Host ""
+}
+
 function Invoke-ResetDb {
     Show-Logo
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -605,6 +698,7 @@ switch ($Command) {
     "test"    { Invoke-Test }
     "lint"    { Invoke-Lint }
     "publish" { Invoke-Publish }
+    "publishpreprod" { Invoke-PublishPreprod }
     "resetdb" { Invoke-ResetDb }
     "freshstart" { Invoke-FreshStart }
     "version" { Write-Host $VersionMoniker }

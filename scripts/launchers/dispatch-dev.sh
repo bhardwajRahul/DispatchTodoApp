@@ -18,6 +18,7 @@
 #   test     Run the test suite
 #   lint     Run ESLint
 #   publish  Publish amd64 image + additional arm64 image
+#   publishpreprod Publish amd64-only preprod image tag (no arm64 build)
 #   resetdb  Remove dev Docker volumes (fresh SQLite state)
 #   freshstart Run full dev cleanup (containers, volumes, local images)
 #   version  Show version number
@@ -90,6 +91,7 @@ show_help() {
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "test"    "Run the test suite"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "lint"    "Run ESLint"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "publish" "Publish amd64 image + additional arm64 image"
+    printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "publishpreprod" "Publish amd64-only preprod image tag (no arm64 build)"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "resetdb" "Remove dev Docker volumes (fresh SQLite state)"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "freshstart" "Run full dev cleanup (containers, volumes, local images)"
     printf "    ${CYAN}%-10s${RESET} ${DIM}%s${RESET}\n" "version" "Show version number"
@@ -158,6 +160,26 @@ derive_arm_image_tag() {
     fi
 
     printf "%s:%s-arm64" "$repo" "$tag"
+}
+
+derive_preprod_image_tag() {
+    local image="$1"
+    local last_segment=""
+    local repo=""
+
+    if [[ "$image" == *"@"* ]]; then
+        echo -e "  ${RED}Digest-based image references are not supported for preprod tag derivation: ${image}${RESET}" >&2
+        return 1
+    fi
+
+    last_segment="${image##*/}"
+    if [[ "$last_segment" == *:* ]]; then
+        repo="${image%:*}"
+    else
+        repo="$image"
+    fi
+
+    printf "%s:preprod" "$repo"
 }
 
 ensure_buildx_builder() {
@@ -519,6 +541,66 @@ cmd_publish() {
     echo ""
 }
 
+cmd_publishpreprod() {
+    show_logo
+    if ! command -v docker >/dev/null 2>&1; then
+        echo -e "  ${RED}Docker is not installed or not on PATH.${RESET}"
+        exit 1
+    fi
+
+    local source_image="${DISPATCH_DEV_IMAGE:-}"
+    local target_image="${DISPATCH_PREPROD_IMAGE:-}"
+    local base_image=""
+
+    if [ -z "$source_image" ]; then
+        source_image="$(get_env_file_value "DISPATCH_DEV_IMAGE" || true)"
+    fi
+    if [ -z "$source_image" ]; then
+        source_image="dispatch:latest"
+    fi
+
+    if [ -z "$target_image" ]; then
+        target_image="$(get_env_file_value "DISPATCH_PREPROD_IMAGE" || true)"
+    fi
+    if [ -z "$target_image" ]; then
+        base_image="${DISPATCH_IMAGE:-}"
+        if [ -z "$base_image" ]; then
+            base_image="$(get_env_file_value "DISPATCH_IMAGE" || true)"
+        fi
+        if [ -z "$base_image" ]; then
+            base_image="ghcr.io/nkasco/dispatchtodoapp:latest"
+        fi
+        target_image="$(derive_preprod_image_tag "$base_image")"
+    fi
+
+    echo -e "  [1/3] ${CYAN}Building image (${source_image}) with docker-compose.dev.yml...${RESET}"
+    if [ -f ".env.local" ]; then
+        docker compose -f docker-compose.dev.yml --env-file .env.local build
+    else
+        docker compose -f docker-compose.dev.yml build
+    fi
+    echo ""
+
+    echo -e "  [2/3] ${CYAN}Tagging image for preprod target (${target_image})...${RESET}"
+    if [ "$source_image" != "$target_image" ]; then
+        docker tag "$source_image" "$target_image"
+    else
+        echo -e "  ${DIM}Source and target image are identical; skipping tag.${RESET}"
+    fi
+    echo ""
+
+    echo -e "  [3/3] ${CYAN}Pushing preprod image (${target_image})...${RESET}"
+    docker push "$target_image" || {
+        echo -e "  ${RED}Docker push failed. Make sure you are logged into the target registry.${RESET}"
+        exit 1
+    }
+    echo ""
+
+    echo -e "  ${GREEN}Preprod publish complete (amd64 only):${RESET}"
+    echo -e "  ${DIM}  image: ${target_image}${RESET}"
+    echo ""
+}
+
 cmd_resetdb() {
     show_logo
     if ! command -v docker >/dev/null 2>&1; then
@@ -571,6 +653,7 @@ case "$COMMAND" in
     test)    cmd_test ;;
     lint)    cmd_lint ;;
     publish) cmd_publish ;;
+    publishpreprod) cmd_publishpreprod ;;
     resetdb) cmd_resetdb ;;
     freshstart) cmd_freshstart ;;
     version) echo "${VERSION_MONIKER}" ;;

@@ -8,7 +8,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("setup", "start", "stop", "restart", "logs", "status", "down", "pull", "freshstart", "updateself", "help", "version", "")]
+    [ValidateSet("setup", "start", "stop", "restart", "logs", "status", "down", "pull", "pullpreprod", "freshstart", "updateself", "help", "version", "")]
     [string]$Command = ""
 )
 
@@ -67,6 +67,7 @@ function Show-Help {
     Write-Host "    logs       Follow Dispatch logs"
     Write-Host "    status     Show container status"
     Write-Host "    pull       Pull latest image and restart"
+    Write-Host "    pullpreprod Pull preprod image tag and restart using it"
     Write-Host "    freshstart Remove containers and volumes, then start fresh"
     Write-Host "    down       Stop and remove containers/network"
     Write-Host "    updateself Download the latest version of this launcher from GitHub"
@@ -212,6 +213,44 @@ function Convert-ToArmImageTag {
     return "${repo}:$tag-arm64"
 }
 
+function Convert-ToPreprodImageTag {
+    param([string]$Image)
+
+    if (-not $Image -or $Image.Trim().Length -eq 0) {
+        return "ghcr.io/nkasco/dispatchtodoapp:preprod"
+    }
+
+    $trimmedImage = $Image.Trim()
+    if ($trimmedImage.Contains("@")) {
+        return "ghcr.io/nkasco/dispatchtodoapp:preprod"
+    }
+
+    $lastSlash = $trimmedImage.LastIndexOf("/")
+    $lastColon = $trimmedImage.LastIndexOf(":")
+    if ($lastColon -gt $lastSlash) {
+        $repo = $trimmedImage.Substring(0, $lastColon)
+    } else {
+        $repo = $trimmedImage
+    }
+
+    return "${repo}:preprod"
+}
+
+function Get-PreprodDispatchImage {
+    param([hashtable]$EnvMap)
+
+    if ($env:DISPATCH_PREPROD_IMAGE -and $env:DISPATCH_PREPROD_IMAGE.Trim().Length -gt 0) {
+        return $env:DISPATCH_PREPROD_IMAGE.Trim()
+    }
+
+    if ($EnvMap -and $EnvMap.Contains("DISPATCH_PREPROD_IMAGE") -and $EnvMap.DISPATCH_PREPROD_IMAGE) {
+        return [string]$EnvMap.DISPATCH_PREPROD_IMAGE
+    }
+
+    $configuredImage = Get-ConfiguredDispatchImage -EnvMap $EnvMap
+    return Convert-ToPreprodImageTag -Image $configuredImage
+}
+
 function Resolve-DispatchImageForHost {
     param([string]$Image)
 
@@ -321,6 +360,43 @@ function Write-ProdEnvFile {
     )
 
     Set-Content -Path $EnvFilePath -Value $lines -Encoding UTF8
+}
+
+function Set-EnvValueInFile {
+    param(
+        [string]$Path,
+        [string]$Key,
+        [string]$Value
+    )
+
+    $lines = @()
+    if (Test-Path $Path) {
+        $lines = Get-Content -Path $Path
+    }
+
+    $updated = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -match "^\s*#") {
+            continue
+        }
+
+        $parts = $line -split "=", 2
+        if ($parts.Length -eq 2 -and $parts[0].Trim() -eq $Key) {
+            $lines[$i] = "$Key=$Value"
+            $updated = $true
+        }
+    }
+
+    if (-not $updated) {
+        if ($lines.Count -eq 0) {
+            $lines = @("$Key=$Value")
+        } else {
+            $lines += "$Key=$Value"
+        }
+    }
+
+    Set-Content -Path $Path -Value $lines -Encoding UTF8
 }
 
 function Run-Compose {
@@ -547,6 +623,28 @@ function Invoke-Pull {
     Run-Compose -ComposeArgs @("up", "-d", "--remove-orphans")
 }
 
+function Invoke-PullPreprod {
+    Show-Logo
+    Assert-Docker
+    Assert-EnvFile
+
+    $arch = Get-DockerArchitecture
+    if ($arch -eq "arm64") {
+        Write-RedLn "pullpreprod is amd64-only. This host is arm64 and no arm64 preprod image is published."
+        exit 1
+    }
+
+    $envMap = Get-EnvMap -Path $EnvFilePath
+    $preprodImage = Get-PreprodDispatchImage -EnvMap $envMap
+    Set-EnvValueInFile -Path $EnvFilePath -Key "DISPATCH_IMAGE" -Value $preprodImage
+
+    Write-DimLn "Using preprod image: $preprodImage"
+    Run-Compose -ComposeArgs @("pull")
+    Write-DimLn "Cleaning up old Dispatch containers..."
+    Run-Compose -ComposeArgs @("down", "--remove-orphans")
+    Run-Compose -ComposeArgs @("up", "-d", "--remove-orphans")
+}
+
 function Invoke-FreshStart {
     Show-Logo
     Assert-Docker
@@ -575,6 +673,7 @@ switch ($Command) {
     "down" { Invoke-Down }
     "updateself" { Invoke-UpdateSelf }
     "pull" { Invoke-Pull }
+    "pullpreprod" { Invoke-PullPreprod }
     "freshstart" { Invoke-FreshStart }
     "version" { Write-Host $VersionMoniker }
     "help" { Show-Help }

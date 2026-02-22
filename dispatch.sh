@@ -47,6 +47,7 @@ show_help() {
   echo "    logs       Follow Dispatch logs"
   echo "    status     Show container status"
   echo "    pull       Pull latest image and restart"
+  echo "    pullpreprod Pull preprod image tag and restart using it"
   echo "    freshstart Remove containers and volumes, then start fresh"
   echo "    down       Stop and remove containers/network"
   echo "    updateself Download the latest version of this launcher from GitHub"
@@ -193,6 +194,46 @@ convert_to_arm_image_tag() {
   printf "%s:%s-arm64" "$repo" "$tag"
 }
 
+convert_to_preprod_image_tag() {
+  local image="$1"
+  local last_segment=""
+  local repo=""
+
+  if [ -z "$image" ] || [[ "$image" == *"@"* ]]; then
+    echo "ghcr.io/nkasco/dispatchtodoapp:preprod"
+    return
+  fi
+
+  last_segment="${image##*/}"
+  if [[ "$last_segment" == *:* ]]; then
+    repo="${image%:*}"
+  else
+    repo="$image"
+  fi
+
+  printf "%s:preprod" "$repo"
+}
+
+get_preprod_dispatch_image() {
+  local env_preprod="${DISPATCH_PREPROD_IMAGE:-}"
+  local file_preprod=""
+  local base_image=""
+
+  if [ -n "$env_preprod" ]; then
+    echo "$env_preprod"
+    return
+  fi
+
+  file_preprod="$(get_env_value "DISPATCH_PREPROD_IMAGE" || true)"
+  if [ -n "$file_preprod" ]; then
+    echo "$file_preprod"
+    return
+  fi
+
+  base_image="$(get_configured_dispatch_image)"
+  convert_to_preprod_image_tag "$base_image"
+}
+
 resolve_dispatch_image_for_host() {
   local image="$1"
   local arch=""
@@ -315,6 +356,27 @@ write_prod_env_file() {
     echo "DISPATCH_IMAGE=$dispatch_image"
     echo ""
   } > "$ENV_FILE"
+}
+
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local tmp_file=""
+
+  tmp_file="$(mktemp)"
+  awk -v k="$key" -v v="$value" '
+    BEGIN { replaced=0 }
+    $0 ~ ("^" k "=") {
+      print k "=" v
+      replaced=1
+      next
+    }
+    { print }
+    END {
+      if (!replaced) print k "=" v
+    }
+  ' "$ENV_FILE" > "$tmp_file"
+  mv "$tmp_file" "$ENV_FILE"
 }
 
 run_compose() {
@@ -555,6 +617,29 @@ cmd_pull() {
   run_compose up -d --remove-orphans
 }
 
+cmd_pullpreprod() {
+  show_logo
+  assert_docker
+  assert_env_file
+
+  local arch=""
+  local preprod_image=""
+  arch="$(get_docker_architecture)"
+  if [ "$arch" = "arm64" ]; then
+    echo -e "${RED}pullpreprod is amd64-only. This host is arm64 and no arm64 preprod image is published.${RESET}"
+    exit 1
+  fi
+
+  preprod_image="$(get_preprod_dispatch_image)"
+  set_env_value "DISPATCH_IMAGE" "$preprod_image"
+  echo -e "${DIM}Using preprod image: ${preprod_image}${RESET}"
+
+  run_compose pull
+  echo -e "${DIM}Cleaning up old Dispatch containers...${RESET}"
+  run_compose down --remove-orphans
+  run_compose up -d --remove-orphans
+}
+
 cmd_freshstart() {
   show_logo
   assert_docker
@@ -584,6 +669,7 @@ case "$COMMAND" in
   down) cmd_down ;;
   updateself) cmd_updateself ;;
   pull) cmd_pull ;;
+  pullpreprod) cmd_pullpreprod ;;
   freshstart) cmd_freshstart ;;
   version) echo "${VERSION_MONIKER}" ;;
   help) show_help ;;
