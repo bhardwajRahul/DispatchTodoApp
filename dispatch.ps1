@@ -8,7 +8,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("setup", "start", "stop", "restart", "logs", "status", "down", "pull", "freshstart", "updateself", "help", "version", "")]
+    [ValidateSet("setup", "start", "stop", "restart", "logs", "status", "down", "pull", "pullpreprod", "freshstart", "updateself", "help", "version", "")]
     [string]$Command = ""
 )
 
@@ -67,6 +67,7 @@ function Show-Help {
     Write-Host "    logs       Follow Dispatch logs"
     Write-Host "    status     Show container status"
     Write-Host "    pull       Pull latest image and restart"
+    Write-Host "    pullpreprod Pull preprod image tag and restart using it"
     Write-Host "    freshstart Remove containers and volumes, then start fresh"
     Write-Host "    down       Stop and remove containers/network"
     Write-Host "    updateself Download the latest version of this launcher from GitHub"
@@ -74,6 +75,7 @@ function Show-Help {
     Write-Host "    help       Show this help message"
     Write-Host ""
     Write-DimLn "  Production config is stored in .env.prod"
+    Write-DimLn "  Image selection is architecture-aware (amd64/arm64)."
     Write-DimLn "  Developer workflow (npm build/test/dev): .\scripts\launchers\dispatch-dev.ps1"
     Write-Host ""
 }
@@ -125,6 +127,152 @@ function Get-EnvMap {
     }
 
     return $map
+}
+
+function Get-ConfiguredDispatchImage {
+    param([hashtable]$EnvMap)
+
+    if ($env:DISPATCH_IMAGE -and $env:DISPATCH_IMAGE.Trim().Length -gt 0) {
+        return $env:DISPATCH_IMAGE.Trim()
+    }
+
+    if ($EnvMap -and $EnvMap.Contains("DISPATCH_IMAGE") -and $EnvMap.DISPATCH_IMAGE) {
+        return [string]$EnvMap.DISPATCH_IMAGE
+    }
+
+    return "ghcr.io/nkasco/dispatchtodoapp:latest"
+}
+
+function Get-DockerArchitecture {
+    $candidates = @()
+
+    $versionArch = (docker version --format "{{.Server.Arch}}" 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $versionArch -and $versionArch.Trim().Length -gt 0) {
+        $candidates += $versionArch.Trim()
+    }
+
+    if ($candidates.Count -eq 0) {
+        $infoArch = (docker info --format "{{.Architecture}}" 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $infoArch -and $infoArch.Trim().Length -gt 0) {
+            $candidates += $infoArch.Trim()
+        }
+    }
+
+    $candidates += [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+
+    foreach ($candidate in $candidates) {
+        switch ($candidate.Trim().ToLowerInvariant()) {
+            { $_ -in @("amd64", "x86_64", "x64") } { return "amd64" }
+            { $_ -in @("arm64", "aarch64") } { return "arm64" }
+        }
+    }
+
+    return "unknown"
+}
+
+function Test-HasExplicitArchTag {
+    param([string]$Image)
+
+    if (-not $Image -or $Image.Contains("@")) {
+        return $false
+    }
+
+    $lastSlash = $Image.LastIndexOf("/")
+    $lastColon = $Image.LastIndexOf(":")
+    if ($lastColon -le $lastSlash) {
+        return $false
+    }
+
+    $tag = $Image.Substring($lastColon + 1).ToLowerInvariant()
+    return $tag.EndsWith("-arm64") -or $tag.EndsWith("-amd64")
+}
+
+function Test-IsDispatchImage {
+    param([string]$Image)
+
+    if (-not $Image -or $Image.Trim().Length -eq 0) {
+        return $false
+    }
+
+    return $Image.Trim().ToLowerInvariant() -match "(^|/)dispatchtodoapp(?::|@|$)"
+}
+
+function Convert-ToArmImageTag {
+    param([string]$Image)
+
+    $lastSlash = $Image.LastIndexOf("/")
+    $lastColon = $Image.LastIndexOf(":")
+    if ($lastColon -gt $lastSlash) {
+        $repo = $Image.Substring(0, $lastColon)
+        $tag = $Image.Substring($lastColon + 1)
+    } else {
+        $repo = $Image
+        $tag = "latest"
+    }
+
+    return "${repo}:$tag-arm64"
+}
+
+function Convert-ToPreprodImageTag {
+    param([string]$Image)
+
+    if (-not $Image -or $Image.Trim().Length -eq 0) {
+        return "ghcr.io/nkasco/dispatchtodoapp:preprod"
+    }
+
+    $trimmedImage = $Image.Trim()
+    if ($trimmedImage.Contains("@")) {
+        return "ghcr.io/nkasco/dispatchtodoapp:preprod"
+    }
+
+    $lastSlash = $trimmedImage.LastIndexOf("/")
+    $lastColon = $trimmedImage.LastIndexOf(":")
+    if ($lastColon -gt $lastSlash) {
+        $repo = $trimmedImage.Substring(0, $lastColon)
+    } else {
+        $repo = $trimmedImage
+    }
+
+    return "${repo}:preprod"
+}
+
+function Get-PreprodDispatchImage {
+    param([hashtable]$EnvMap)
+
+    if ($env:DISPATCH_PREPROD_IMAGE -and $env:DISPATCH_PREPROD_IMAGE.Trim().Length -gt 0) {
+        return $env:DISPATCH_PREPROD_IMAGE.Trim()
+    }
+
+    if ($EnvMap -and $EnvMap.Contains("DISPATCH_PREPROD_IMAGE") -and $EnvMap.DISPATCH_PREPROD_IMAGE) {
+        return [string]$EnvMap.DISPATCH_PREPROD_IMAGE
+    }
+
+    $configuredImage = Get-ConfiguredDispatchImage -EnvMap $EnvMap
+    return Convert-ToPreprodImageTag -Image $configuredImage
+}
+
+function Resolve-DispatchImageForHost {
+    param([string]$Image)
+
+    if (-not $Image -or $Image.Trim().Length -eq 0) {
+        return "ghcr.io/nkasco/dispatchtodoapp:latest"
+    }
+
+    $trimmedImage = $Image.Trim()
+    if ($trimmedImage.Contains("@") -or (Test-HasExplicitArchTag -Image $trimmedImage)) {
+        return $trimmedImage
+    }
+
+    if (-not (Test-IsDispatchImage -Image $trimmedImage)) {
+        return $trimmedImage
+    }
+
+    $arch = Get-DockerArchitecture
+    if ($arch -eq "arm64") {
+        return Convert-ToArmImageTag -Image $trimmedImage
+    }
+
+    return $trimmedImage
 }
 
 function Prompt-Value {
@@ -214,13 +362,65 @@ function Write-ProdEnvFile {
     Set-Content -Path $EnvFilePath -Value $lines -Encoding UTF8
 }
 
+function Set-EnvValueInFile {
+    param(
+        [string]$Path,
+        [string]$Key,
+        [string]$Value
+    )
+
+    $lines = @()
+    if (Test-Path $Path) {
+        $lines = Get-Content -Path $Path
+    }
+
+    $updated = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -match "^\s*#") {
+            continue
+        }
+
+        $parts = $line -split "=", 2
+        if ($parts.Length -eq 2 -and $parts[0].Trim() -eq $Key) {
+            $lines[$i] = "$Key=$Value"
+            $updated = $true
+        }
+    }
+
+    if (-not $updated) {
+        if ($lines.Count -eq 0) {
+            $lines = @("$Key=$Value")
+        } else {
+            $lines += "$Key=$Value"
+        }
+    }
+
+    Set-Content -Path $Path -Value $lines -Encoding UTF8
+}
+
 function Run-Compose {
     param([string[]]$ComposeArgs)
 
     Set-Location $ScriptRoot
-    docker compose --env-file .env.prod @ComposeArgs
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+    $envMap = Get-EnvMap -Path $EnvFilePath
+    $configuredImage = Get-ConfiguredDispatchImage -EnvMap $envMap
+    $resolvedImage = Resolve-DispatchImageForHost -Image $configuredImage
+
+    $hadPreviousDispatchImage = Test-Path Env:DISPATCH_IMAGE
+    $previousDispatchImage = $env:DISPATCH_IMAGE
+    $env:DISPATCH_IMAGE = $resolvedImage
+    try {
+        docker compose --env-file .env.prod @ComposeArgs
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+    } finally {
+        if ($hadPreviousDispatchImage) {
+            $env:DISPATCH_IMAGE = $previousDispatchImage
+        } else {
+            Remove-Item Env:DISPATCH_IMAGE -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -279,6 +479,7 @@ function Invoke-Setup {
     } else {
         "ghcr.io/nkasco/dispatchtodoapp:latest"
     }
+    $defaultImage = Resolve-DispatchImageForHost -Image $defaultImage
     $dispatchImage = Prompt-Value -Message "Container image to run (DISPATCH_IMAGE)" -Default $defaultImage
 
     $hasGitHub = ($existing.Contains("AUTH_GITHUB_ID") -and $existing.AUTH_GITHUB_ID) -and ($existing.Contains("AUTH_GITHUB_SECRET") -and $existing.AUTH_GITHUB_SECRET)
@@ -422,6 +623,28 @@ function Invoke-Pull {
     Run-Compose -ComposeArgs @("up", "-d", "--remove-orphans")
 }
 
+function Invoke-PullPreprod {
+    Show-Logo
+    Assert-Docker
+    Assert-EnvFile
+
+    $arch = Get-DockerArchitecture
+    if ($arch -eq "arm64") {
+        Write-RedLn "pullpreprod is amd64-only. This host is arm64 and no arm64 preprod image is published."
+        exit 1
+    }
+
+    $envMap = Get-EnvMap -Path $EnvFilePath
+    $preprodImage = Get-PreprodDispatchImage -EnvMap $envMap
+    Set-EnvValueInFile -Path $EnvFilePath -Key "DISPATCH_IMAGE" -Value $preprodImage
+
+    Write-DimLn "Using preprod image: $preprodImage"
+    Run-Compose -ComposeArgs @("pull")
+    Write-DimLn "Cleaning up old Dispatch containers..."
+    Run-Compose -ComposeArgs @("down", "--remove-orphans")
+    Run-Compose -ComposeArgs @("up", "-d", "--remove-orphans")
+}
+
 function Invoke-FreshStart {
     Show-Logo
     Assert-Docker
@@ -450,6 +673,7 @@ switch ($Command) {
     "down" { Invoke-Down }
     "updateself" { Invoke-UpdateSelf }
     "pull" { Invoke-Pull }
+    "pullpreprod" { Invoke-PullPreprod }
     "freshstart" { Invoke-FreshStart }
     "version" { Write-Host $VersionMoniker }
     "help" { Show-Help }

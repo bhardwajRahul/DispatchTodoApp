@@ -6,7 +6,7 @@
     Provides commands to set up, start, update, and manage your Dispatch instance.
 
 .PARAMETER Command
-    The command to run: setup, dev, start, build, update, updateself, seed, studio, test, publish, resetdb, freshstart, help
+    The command to run: setup, dev, start, build, update, updateself, seed, studio, test, publish, publishpreprod, resetdb, freshstart, help
 
 .EXAMPLE
     .\scripts\launchers\dispatch-dev.ps1 setup
@@ -17,7 +17,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("setup", "dev", "start", "build", "update", "updateself", "seed", "studio", "test", "lint", "publish", "resetdb", "freshstart", "help", "version", "")]
+    [ValidateSet("setup", "dev", "start", "build", "update", "updateself", "seed", "studio", "test", "lint", "publish", "publishpreprod", "resetdb", "freshstart", "help", "version", "")]
     [string]$Command = "",
     [Parameter(Position = 1)]
     [ValidateSet("", "full")]
@@ -87,7 +87,8 @@ function Show-Help {
         @{ Cmd = "studio";  Desc = "Open Drizzle Studio (database GUI)" }
         @{ Cmd = "test";    Desc = "Run the test suite" }
         @{ Cmd = "lint";    Desc = "Run ESLint" }
-        @{ Cmd = "publish"; Desc = "Build dev image, tag, and push container image" }
+        @{ Cmd = "publish"; Desc = "Publish amd64 image + additional arm64 image" }
+        @{ Cmd = "publishpreprod"; Desc = "Publish amd64-only preprod image tag (no arm64 build)" }
         @{ Cmd = "resetdb"; Desc = "Remove dev Docker volumes (fresh SQLite state)" }
         @{ Cmd = "freshstart"; Desc = "Run full dev cleanup (containers, volumes, local images)" }
         @{ Cmd = "version"; Desc = "Show version number" }
@@ -96,7 +97,7 @@ function Show-Help {
 
     foreach ($c in $commands) {
         Write-Host "    " -NoNewline
-        Write-Host ("{0,-11}" -f $c.Cmd) -ForegroundColor Cyan -NoNewline
+        Write-Host ("{0,-15}" -f $c.Cmd) -ForegroundColor Cyan -NoNewline
         Write-Host $c.Desc -ForegroundColor DarkGray
     }
     Write-Host ""
@@ -410,6 +411,85 @@ function Get-EnvValueFromFile {
     return $null
 }
 
+function Get-ArmImageTag {
+    param([string]$Image)
+
+    if ($Image.Contains("@")) {
+        Write-RedLn "  Digest-based image references are not supported for ARM tag derivation: $Image"
+        exit 1
+    }
+
+    $lastSlash = $Image.LastIndexOf("/")
+    $lastColon = $Image.LastIndexOf(":")
+    if ($lastColon -gt $lastSlash) {
+        $repo = $Image.Substring(0, $lastColon)
+        $tag = $Image.Substring($lastColon + 1)
+    } else {
+        $repo = $Image
+        $tag = "latest"
+    }
+
+    return "${repo}:$tag-arm64"
+}
+
+function Get-PreprodImageTag {
+    param([string]$Image)
+
+    if ($Image.Contains("@")) {
+        Write-RedLn "  Digest-based image references are not supported for preprod tag derivation: $Image"
+        exit 1
+    }
+
+    $lastSlash = $Image.LastIndexOf("/")
+    $lastColon = $Image.LastIndexOf(":")
+    if ($lastColon -gt $lastSlash) {
+        $repo = $Image.Substring(0, $lastColon)
+    } else {
+        $repo = $Image
+    }
+
+    return "${repo}:preprod"
+}
+
+function Ensure-BuildxBuilder {
+    param([string]$Name = "dispatch-multiarch")
+
+    docker buildx version | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-RedLn "  Docker Buildx is required for ARM publishing. Install or enable Docker Buildx and retry."
+        exit 1
+    }
+
+    Write-DimLn "  Installing binfmt emulation for arm64 (QEMU)..."
+    docker run --privileged --rm tonistiigi/binfmt --install arm64 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-RedLn "  Failed to install QEMU binfmt support for arm64."
+        exit $LASTEXITCODE
+    }
+
+    docker buildx inspect $Name 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-DimLn "  Creating Buildx builder '$Name'..."
+        docker buildx create --name $Name --driver docker-container --use | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-RedLn "  Failed to create Buildx builder '$Name'."
+            exit $LASTEXITCODE
+        }
+    } else {
+        docker buildx use $Name | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-RedLn "  Failed to select Buildx builder '$Name'."
+            exit $LASTEXITCODE
+        }
+    }
+
+    docker buildx inspect --bootstrap | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-RedLn "  Failed to bootstrap Buildx builder '$Name'."
+        exit $LASTEXITCODE
+    }
+}
+
 function Invoke-Publish {
     Show-Logo
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -438,6 +518,92 @@ function Invoke-Publish {
         $targetImage = "ghcr.io/nkasco/dispatchtodoapp:latest"
     }
 
+    Write-Host "  [1/4] " -NoNewline; Write-CyanLn "Building image ($sourceImage) with docker-compose.dev.yml..."
+    if (Test-Path $envFile) {
+        docker compose -f docker-compose.dev.yml --env-file .env.local build
+    } else {
+        docker compose -f docker-compose.dev.yml build
+    }
+    if ($LASTEXITCODE -ne 0) {
+        Write-RedLn "  Docker build failed."
+        exit $LASTEXITCODE
+    }
+    Write-Host ""
+
+    Write-Host "  [2/4] " -NoNewline; Write-CyanLn "Tagging image for publish target ($targetImage)..."
+    if ($sourceImage -ne $targetImage) {
+        docker tag $sourceImage $targetImage
+        if ($LASTEXITCODE -ne 0) {
+            Write-RedLn "  Docker tag failed."
+            exit $LASTEXITCODE
+        }
+    } else {
+        Write-DimLn "  Source and target image are identical; skipping tag."
+    }
+    Write-Host ""
+
+    Write-Host "  [3/4] " -NoNewline; Write-CyanLn "Pushing image ($targetImage)..."
+    docker push $targetImage
+    if ($LASTEXITCODE -ne 0) {
+        Write-RedLn "  Docker push failed. Make sure you are logged into the target registry."
+        exit $LASTEXITCODE
+    }
+    Write-Host ""
+
+    $armImage = Get-ArmImageTag -Image $targetImage
+    $builderName = if ($env:DISPATCH_BUILDX_BUILDER) { $env:DISPATCH_BUILDX_BUILDER } else { "dispatch-multiarch" }
+
+    Write-Host "  [4/4] " -NoNewline; Write-CyanLn "Building and pushing ARM image ($armImage) with Buildx/QEMU..."
+    Ensure-BuildxBuilder -Name $builderName
+    docker buildx build --platform linux/arm64 --file Dockerfile --tag $armImage --push .
+    if ($LASTEXITCODE -ne 0) {
+        Write-RedLn "  ARM image build/push failed."
+        exit $LASTEXITCODE
+    }
+    Write-Host ""
+
+    Write-GreenLn "  Publish complete:"
+    Write-DimLn "    amd64: $targetImage"
+    Write-DimLn "    arm64: $armImage"
+    Write-Host ""
+}
+
+function Invoke-PublishPreprod {
+    Show-Logo
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+        Write-RedLn "  Docker is not installed or not on PATH."
+        exit 1
+    }
+
+    Set-Location $RepoRoot
+    $envFile = "$RepoRoot\.env.local"
+
+    $sourceImage = if ($env:DISPATCH_DEV_IMAGE) {
+        $env:DISPATCH_DEV_IMAGE
+    } else {
+        Get-EnvValueFromFile -Path $envFile -Key "DISPATCH_DEV_IMAGE"
+    }
+    if (-not $sourceImage) {
+        $sourceImage = "dispatch:latest"
+    }
+
+    $targetImage = if ($env:DISPATCH_PREPROD_IMAGE) {
+        $env:DISPATCH_PREPROD_IMAGE
+    } else {
+        Get-EnvValueFromFile -Path $envFile -Key "DISPATCH_PREPROD_IMAGE"
+    }
+    if (-not $targetImage) {
+        $baseImage = if ($env:DISPATCH_IMAGE) {
+            $env:DISPATCH_IMAGE
+        } else {
+            Get-EnvValueFromFile -Path $envFile -Key "DISPATCH_IMAGE"
+        }
+        if (-not $baseImage) {
+            $baseImage = "ghcr.io/nkasco/dispatchtodoapp:latest"
+        }
+        $targetImage = Get-PreprodImageTag -Image $baseImage
+    }
+
     Write-Host "  [1/3] " -NoNewline; Write-CyanLn "Building image ($sourceImage) with docker-compose.dev.yml..."
     if (Test-Path $envFile) {
         docker compose -f docker-compose.dev.yml --env-file .env.local build
@@ -450,7 +616,7 @@ function Invoke-Publish {
     }
     Write-Host ""
 
-    Write-Host "  [2/3] " -NoNewline; Write-CyanLn "Tagging image for publish target ($targetImage)..."
+    Write-Host "  [2/3] " -NoNewline; Write-CyanLn "Tagging image for preprod target ($targetImage)..."
     if ($sourceImage -ne $targetImage) {
         docker tag $sourceImage $targetImage
         if ($LASTEXITCODE -ne 0) {
@@ -462,7 +628,7 @@ function Invoke-Publish {
     }
     Write-Host ""
 
-    Write-Host "  [3/3] " -NoNewline; Write-CyanLn "Pushing image ($targetImage)..."
+    Write-Host "  [3/3] " -NoNewline; Write-CyanLn "Pushing preprod image ($targetImage)..."
     docker push $targetImage
     if ($LASTEXITCODE -ne 0) {
         Write-RedLn "  Docker push failed. Make sure you are logged into the target registry."
@@ -470,7 +636,8 @@ function Invoke-Publish {
     }
     Write-Host ""
 
-    Write-GreenLn "  Publish complete: $targetImage"
+    Write-GreenLn "  Preprod publish complete (amd64 only):"
+    Write-DimLn "    image: $targetImage"
     Write-Host ""
 }
 
@@ -531,10 +698,10 @@ switch ($Command) {
     "test"    { Invoke-Test }
     "lint"    { Invoke-Lint }
     "publish" { Invoke-Publish }
+    "publishpreprod" { Invoke-PublishPreprod }
     "resetdb" { Invoke-ResetDb }
     "freshstart" { Invoke-FreshStart }
     "version" { Write-Host $VersionMoniker }
     "help"    { Show-Help }
     default   { Show-Help }
 }
-

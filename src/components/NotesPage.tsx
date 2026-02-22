@@ -6,6 +6,7 @@ import { api, type Note } from "@/lib/client";
 import { Pagination } from "@/components/Pagination";
 import { useToast } from "@/components/ToastProvider";
 import { IconDocument, IconGrid, IconList, IconPlus, IconTrash } from "@/components/icons";
+import { renderTemplate } from "@/lib/templates";
 
 export function NotesPage() {
   const router = useRouter();
@@ -107,8 +108,8 @@ export function NotesPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-900/30">
             <IconDocument className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -124,7 +125,7 @@ export function NotesPage() {
         </div>
         <button
           onClick={handleCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:scale-95 transition-all inline-flex items-center gap-1.5 shadow-sm"
+          className="inline-flex self-start items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-500 active:scale-95 sm:self-auto"
         >
           <IconPlus className="w-4 h-4" />
           New Note
@@ -282,26 +283,31 @@ function NoteRow({
   onRequestDelete: () => void;
   onConfirmDelete: () => void;
 }) {
+  const renderedTitle = renderTemplate(note.title, { referenceDate: note.createdAt });
+  const renderedContent = note.content
+    ? renderTemplate(note.content, { referenceDate: note.createdAt })
+    : "";
+
   return (
     <li
-      className={`group flex items-center gap-3 px-4 py-3 transition-all duration-200 ${
+      className={`group flex flex-wrap items-center gap-2.5 px-4 py-3 transition-all duration-200 sm:gap-3 ${
         index > 0 ? "border-t border-neutral-100 dark:border-neutral-800/50" : ""
       } ${isDeleting ? "animate-slide-out-right overflow-hidden" : ""} hover:bg-neutral-50 dark:hover:bg-neutral-800/30`}
       style={{ listStyle: "none" }}
       onClick={onClick}
     >
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate dark:text-white">{note.title}</p>
-        {note.content && (
+      <div className="min-w-0 basis-full sm:flex-1">
+        <p className="text-sm font-medium truncate dark:text-white">{renderedTitle}</p>
+        {renderedContent && (
           <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
-            {note.content}
+            {renderedContent}
           </p>
         )}
       </div>
       <span className="text-xs text-neutral-300 dark:text-neutral-600 whitespace-nowrap">
         {new Date(note.updatedAt).toLocaleDateString()}
       </span>
-      <div data-note-delete className="min-w-[72px] flex justify-end">
+      <div data-note-delete className="flex w-full justify-end sm:w-auto sm:min-w-[72px]">
         {confirmDelete ? (
           <button
             onClick={(e) => {
@@ -318,7 +324,7 @@ function NoteRow({
               e.stopPropagation();
               onRequestDelete();
             }}
-            className="rounded-md p-1.5 text-neutral-300 dark:text-neutral-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-colors"
+            className="rounded-md p-1.5 text-neutral-300 opacity-100 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-neutral-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100"
             title="Delete note"
           >
             <IconTrash className="w-3.5 h-3.5" />
@@ -346,6 +352,11 @@ function NoteCard({
   onRequestDelete: () => void;
   onConfirmDelete: () => void;
 }) {
+  const renderedTitle = renderTemplate(note.title, { referenceDate: note.createdAt });
+  const renderedContent = note.content
+    ? renderTemplate(note.content, { referenceDate: note.createdAt })
+    : "";
+
   return (
     <div
       className={`group relative rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md hover:scale-[1.02] hover:border-neutral-300 dark:hover:border-neutral-700 animate-fade-in-up ${
@@ -371,16 +382,16 @@ function NoteCard({
               e.stopPropagation();
               onRequestDelete();
             }}
-            className="rounded-md p-1.5 text-neutral-300 dark:text-neutral-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-colors"
+            className="rounded-md p-1.5 text-neutral-300 opacity-100 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-neutral-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100"
             title="Delete note"
           >
             <IconTrash className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
-      <h3 className="font-medium text-sm truncate dark:text-white">{note.title}</h3>
-      {note.content && (
-        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 line-clamp-3">{note.content}</p>
+      <h3 className="font-medium text-sm truncate dark:text-white">{renderedTitle}</h3>
+      {renderedContent && (
+        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 line-clamp-3">{renderedContent}</p>
       )}
       <p className="text-xs text-neutral-300 dark:text-neutral-600 mt-3">
         {new Date(note.updatedAt).toLocaleDateString()}

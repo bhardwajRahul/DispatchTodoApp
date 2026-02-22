@@ -47,6 +47,7 @@ show_help() {
   echo "    logs       Follow Dispatch logs"
   echo "    status     Show container status"
   echo "    pull       Pull latest image and restart"
+  echo "    pullpreprod Pull preprod image tag and restart using it"
   echo "    freshstart Remove containers and volumes, then start fresh"
   echo "    down       Stop and remove containers/network"
   echo "    updateself Download the latest version of this launcher from GitHub"
@@ -54,6 +55,7 @@ show_help() {
   echo "    help       Show this help message"
   echo ""
   echo -e "  ${DIM}Production config is stored in .env.prod${RESET}"
+  echo -e "  ${DIM}Image selection is architecture-aware (amd64/arm64).${RESET}"
   echo -e "  ${DIM}Developer workflow (npm build/test/dev): ./scripts/launchers/dispatch-dev.sh${RESET}"
   echo ""
 }
@@ -107,6 +109,156 @@ get_env_value() {
   done < "$ENV_FILE"
 
   return 1
+}
+
+get_configured_dispatch_image() {
+  local env_image="${DISPATCH_IMAGE:-}"
+  local file_image=""
+
+  if [ -n "$env_image" ]; then
+    echo "$env_image"
+    return
+  fi
+
+  file_image="$(get_env_value "DISPATCH_IMAGE" || true)"
+  if [ -n "$file_image" ]; then
+    echo "$file_image"
+    return
+  fi
+
+  echo "ghcr.io/nkasco/dispatchtodoapp:latest"
+}
+
+get_docker_architecture() {
+  local raw_arch=""
+  local normalized=""
+
+  raw_arch="$(docker version --format '{{.Server.Arch}}' 2>/dev/null || true)"
+  if [ -z "$raw_arch" ]; then
+    raw_arch="$(docker info --format '{{.Architecture}}' 2>/dev/null || true)"
+  fi
+  if [ -z "$raw_arch" ]; then
+    raw_arch="$(uname -m 2>/dev/null || true)"
+  fi
+
+  normalized="$(printf "%s" "$raw_arch" | tr '[:upper:]' '[:lower:]')"
+  case "$normalized" in
+    amd64|x86_64|x64) echo "amd64" ;;
+    arm64|aarch64) echo "arm64" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+has_explicit_arch_tag() {
+  local image="$1"
+  local last_segment=""
+  local tag=""
+
+  if [[ "$image" == *"@"* ]]; then
+    return 1
+  fi
+
+  last_segment="${image##*/}"
+  if [[ "$last_segment" != *:* ]]; then
+    return 1
+  fi
+
+  tag="${image##*:}"
+  tag="$(printf "%s" "$tag" | tr '[:upper:]' '[:lower:]')"
+  [[ "$tag" == *"-arm64" || "$tag" == *"-amd64" ]]
+}
+
+is_dispatch_image() {
+  local image="$1"
+  local normalized=""
+
+  normalized="$(printf "%s" "$image" | tr '[:upper:]' '[:lower:]')"
+  [[ "$normalized" =~ (^|/)dispatchtodoapp(:|@|$) ]]
+}
+
+convert_to_arm_image_tag() {
+  local image="$1"
+  local last_segment=""
+  local repo=""
+  local tag=""
+
+  last_segment="${image##*/}"
+  if [[ "$last_segment" == *:* ]]; then
+    repo="${image%:*}"
+    tag="${image##*:}"
+  else
+    repo="$image"
+    tag="latest"
+  fi
+
+  printf "%s:%s-arm64" "$repo" "$tag"
+}
+
+convert_to_preprod_image_tag() {
+  local image="$1"
+  local last_segment=""
+  local repo=""
+
+  if [ -z "$image" ] || [[ "$image" == *"@"* ]]; then
+    echo "ghcr.io/nkasco/dispatchtodoapp:preprod"
+    return
+  fi
+
+  last_segment="${image##*/}"
+  if [[ "$last_segment" == *:* ]]; then
+    repo="${image%:*}"
+  else
+    repo="$image"
+  fi
+
+  printf "%s:preprod" "$repo"
+}
+
+get_preprod_dispatch_image() {
+  local env_preprod="${DISPATCH_PREPROD_IMAGE:-}"
+  local file_preprod=""
+  local base_image=""
+
+  if [ -n "$env_preprod" ]; then
+    echo "$env_preprod"
+    return
+  fi
+
+  file_preprod="$(get_env_value "DISPATCH_PREPROD_IMAGE" || true)"
+  if [ -n "$file_preprod" ]; then
+    echo "$file_preprod"
+    return
+  fi
+
+  base_image="$(get_configured_dispatch_image)"
+  convert_to_preprod_image_tag "$base_image"
+}
+
+resolve_dispatch_image_for_host() {
+  local image="$1"
+  local arch=""
+
+  if [ -z "$image" ]; then
+    image="ghcr.io/nkasco/dispatchtodoapp:latest"
+  fi
+
+  if [[ "$image" == *"@"* ]] || has_explicit_arch_tag "$image"; then
+    echo "$image"
+    return
+  fi
+
+  if ! is_dispatch_image "$image"; then
+    echo "$image"
+    return
+  fi
+
+  arch="$(get_docker_architecture)"
+  if [ "$arch" = "arm64" ]; then
+    convert_to_arm_image_tag "$image"
+    return
+  fi
+
+  echo "$image"
 }
 
 prompt_value() {
@@ -206,8 +358,35 @@ write_prod_env_file() {
   } > "$ENV_FILE"
 }
 
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local tmp_file=""
+
+  tmp_file="$(mktemp)"
+  awk -v k="$key" -v v="$value" '
+    BEGIN { replaced=0 }
+    $0 ~ ("^" k "=") {
+      print k "=" v
+      replaced=1
+      next
+    }
+    { print }
+    END {
+      if (!replaced) print k "=" v
+    }
+  ' "$ENV_FILE" > "$tmp_file"
+  mv "$tmp_file" "$ENV_FILE"
+}
+
 run_compose() {
-  docker compose --env-file "$ENV_FILE" "$@"
+  local configured_image=""
+  local resolved_image=""
+
+  configured_image="$(get_configured_dispatch_image)"
+  resolved_image="$(resolve_dispatch_image_for_host "$configured_image")"
+
+  DISPATCH_IMAGE="$resolved_image" docker compose --env-file "$ENV_FILE" "$@"
 }
 
 has_http_client() {
@@ -299,6 +478,7 @@ cmd_setup() {
   if [ -z "$existing_image" ]; then
     existing_image="${DISPATCH_IMAGE:-ghcr.io/nkasco/dispatchtodoapp:latest}"
   fi
+  existing_image="$(resolve_dispatch_image_for_host "$existing_image")"
   dispatch_image="$(prompt_value "Container image to run (DISPATCH_IMAGE)" "$existing_image")"
 
   if [ -n "$existing_gh_id" ] && [ -n "$existing_gh_secret" ]; then
@@ -437,6 +617,29 @@ cmd_pull() {
   run_compose up -d --remove-orphans
 }
 
+cmd_pullpreprod() {
+  show_logo
+  assert_docker
+  assert_env_file
+
+  local arch=""
+  local preprod_image=""
+  arch="$(get_docker_architecture)"
+  if [ "$arch" = "arm64" ]; then
+    echo -e "${RED}pullpreprod is amd64-only. This host is arm64 and no arm64 preprod image is published.${RESET}"
+    exit 1
+  fi
+
+  preprod_image="$(get_preprod_dispatch_image)"
+  set_env_value "DISPATCH_IMAGE" "$preprod_image"
+  echo -e "${DIM}Using preprod image: ${preprod_image}${RESET}"
+
+  run_compose pull
+  echo -e "${DIM}Cleaning up old Dispatch containers...${RESET}"
+  run_compose down --remove-orphans
+  run_compose up -d --remove-orphans
+}
+
 cmd_freshstart() {
   show_logo
   assert_docker
@@ -466,6 +669,7 @@ case "$COMMAND" in
   down) cmd_down ;;
   updateself) cmd_updateself ;;
   pull) cmd_pull ;;
+  pullpreprod) cmd_pullpreprod ;;
   freshstart) cmd_freshstart ;;
   version) echo "${VERSION_MONIKER}" ;;
   help) show_help ;;
