@@ -1,5 +1,6 @@
 import { withAuth, jsonResponse, errorResponse } from "@/lib/api";
 import {
+  getNextTaskRecurrenceDate,
   isTaskRecurrenceBehavior,
   isTaskRecurrenceType,
   parseTaskCustomRecurrenceRule,
@@ -7,8 +8,10 @@ import {
   type TaskRecurrenceBehavior,
   type TaskRecurrenceType,
 } from "@/lib/task-recurrence";
+import { getTodayIsoDate } from "@/lib/task-recurrence-rollover";
+import { syncRecurrenceSeriesForUser } from "@/lib/recurrence-series-sync";
 import { db } from "@/db";
-import { tasks, projects } from "@/db/schema";
+import { tasks, projects, recurrenceSeries } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 
 const VALID_STATUSES = ["open", "in_progress", "done"] as const;
@@ -19,6 +22,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 /** GET /api/tasks/[id] — get a single task */
 export const GET = withAuth(async (req, session, ctx) => {
   const { id } = await (ctx as RouteContext).params;
+  const todayIsoDate = getTodayIsoDate(session.user.timeZone ?? null);
+
+  await syncRecurrenceSeriesForUser(session.user!.id!, todayIsoDate);
 
   const [task] = await db
     .select()
@@ -120,10 +126,18 @@ export const PUT = withAuth(async (req, session, ctx) => {
   const [existing] = await db
     .select({
       id: tasks.id,
+      userId: tasks.userId,
+      title: tasks.title,
+      description: tasks.description,
+      status: tasks.status,
+      priority: tasks.priority,
+      projectId: tasks.projectId,
       dueDate: tasks.dueDate,
       recurrenceType: tasks.recurrenceType,
       recurrenceBehavior: tasks.recurrenceBehavior,
       recurrenceRule: tasks.recurrenceRule,
+      recurrenceSeriesId: tasks.recurrenceSeriesId,
+      recurrenceProcessedAt: tasks.recurrenceProcessedAt,
     })
     .from(tasks)
     .where(and(eq(tasks.id, id), eq(tasks.userId, session.user!.id!), isNull(tasks.deletedAt)));
@@ -201,6 +215,60 @@ export const PUT = withAuth(async (req, session, ctx) => {
     .set(updates)
     .where(eq(tasks.id, id))
     .returning();
+
+  if (
+    status === "done"
+    && existing.status !== "done"
+    && existing.recurrenceSeriesId
+    && !existing.recurrenceProcessedAt
+  ) {
+    const todayIsoDate = getTodayIsoDate(session.user.timeZone ?? null);
+    const [series] = await db
+      .select({
+        id: recurrenceSeries.id,
+        nextDueDate: recurrenceSeries.nextDueDate,
+        recurrenceType: recurrenceSeries.recurrenceType,
+        recurrenceBehavior: recurrenceSeries.recurrenceBehavior,
+        recurrenceRule: recurrenceSeries.recurrenceRule,
+      })
+      .from(recurrenceSeries)
+      .where(
+        and(
+          eq(recurrenceSeries.id, existing.recurrenceSeriesId),
+          eq(recurrenceSeries.userId, session.user!.id!),
+          isNull(recurrenceSeries.deletedAt),
+          eq(recurrenceSeries.active, true),
+        ),
+      )
+      .limit(1);
+
+    if (series?.recurrenceBehavior === "after_completion") {
+      const anchorIsoDate = updated.dueDate && updated.dueDate > todayIsoDate
+        ? updated.dueDate
+        : todayIsoDate;
+      const nextDueDate = getNextTaskRecurrenceDate(
+        anchorIsoDate,
+        series.recurrenceType,
+        series.recurrenceRule,
+      );
+      if (nextDueDate) {
+        const processedAt = new Date().toISOString();
+        const [lock] = await db
+          .update(tasks)
+          .set({ recurrenceProcessedAt: processedAt, updatedAt: processedAt })
+          .where(and(eq(tasks.id, id), isNull(tasks.recurrenceProcessedAt)))
+          .returning({ id: tasks.id });
+        if (!lock) {
+          return jsonResponse(updated);
+        }
+
+        await db
+          .update(recurrenceSeries)
+          .set({ nextDueDate, updatedAt: processedAt })
+          .where(eq(recurrenceSeries.id, series.id));
+      }
+    }
+  }
 
   return jsonResponse(updated);
 });

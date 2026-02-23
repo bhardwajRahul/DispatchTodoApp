@@ -8,7 +8,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("setup", "start", "stop", "restart", "logs", "status", "down", "pull", "pullpreprod", "freshstart", "updateself", "help", "version", "")]
+    [ValidateSet("setup", "start", "stop", "restart", "logs", "status", "down", "pull", "pullpreprod", "pulllatest", "freshstart", "updateself", "help", "version", "")]
     [string]$Command = ""
 )
 
@@ -68,6 +68,7 @@ function Show-Help {
     Write-Host "    status     Show container status"
     Write-Host "    pull       Pull latest image and restart"
     Write-Host "    pullpreprod Pull preprod image tag and restart using it"
+    Write-Host "    pulllatest Pull latest image tag and restart using it"
     Write-Host "    freshstart Remove containers and volumes, then start fresh"
     Write-Host "    down       Stop and remove containers/network"
     Write-Host "    updateself Download the latest version of this launcher from GitHub"
@@ -645,6 +646,21 @@ function Invoke-PullPreprod {
     Run-Compose -ComposeArgs @("up", "-d", "--remove-orphans")
 }
 
+function Invoke-PullLatest {
+    Show-Logo
+    Assert-Docker
+    Assert-EnvFile
+
+    $latestImage = "ghcr.io/nkasco/dispatchtodoapp:latest"
+    Set-EnvValueInFile -Path $EnvFilePath -Key "DISPATCH_IMAGE" -Value $latestImage
+
+    Write-DimLn "Using latest image: $latestImage"
+    Run-Compose -ComposeArgs @("pull")
+    Write-DimLn "Cleaning up old Dispatch containers..."
+    Run-Compose -ComposeArgs @("down", "--remove-orphans")
+    Run-Compose -ComposeArgs @("up", "-d", "--remove-orphans")
+}
+
 function Invoke-FreshStart {
     Show-Logo
     Assert-Docker
@@ -674,6 +690,7 @@ switch ($Command) {
     "updateself" { Invoke-UpdateSelf }
     "pull" { Invoke-Pull }
     "pullpreprod" { Invoke-PullPreprod }
+    "pulllatest" { Invoke-PullLatest }
     "freshstart" { Invoke-FreshStart }
     "version" { Write-Host $VersionMoniker }
     "help" { Show-Help }

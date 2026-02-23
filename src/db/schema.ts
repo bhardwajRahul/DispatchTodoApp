@@ -113,6 +113,8 @@ export const tasks = sqliteTable(
       .notNull()
       .default("after_completion"),
     recurrenceRule: text("recurrenceRule"),
+    recurrenceSeriesId: text("recurrenceSeriesId"),
+    recurrenceProcessedAt: text("recurrenceProcessedAt"),
     deletedAt: text("deletedAt"),
     createdAt: text("createdAt")
       .notNull()
@@ -126,7 +128,50 @@ export const tasks = sqliteTable(
     index("task_projectId_idx").on(table.projectId),
     index("task_status_idx").on(table.status),
     index("task_priority_idx").on(table.priority),
+    index("task_recurrenceSeriesId_idx").on(table.recurrenceSeriesId),
   ]
+);
+
+export const recurrenceSeries = sqliteTable(
+  "recurrence_series",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: text("projectId").references(() => projects.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    priority: text("priority", { enum: ["low", "medium", "high"] })
+      .notNull()
+      .default("medium"),
+    recurrenceType: text("recurrenceType", {
+      enum: ["daily", "weekly", "monthly", "custom"],
+    }).notNull(),
+    recurrenceBehavior: text("recurrenceBehavior", {
+      enum: ["after_completion", "duplicate_on_schedule"],
+    })
+      .notNull()
+      .default("after_completion"),
+    recurrenceRule: text("recurrenceRule"),
+    nextDueDate: text("nextDueDate").notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    deletedAt: text("deletedAt"),
+    createdAt: text("createdAt")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    updatedAt: text("updatedAt")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [
+    index("recurrence_series_userId_idx").on(table.userId),
+    index("recurrence_series_projectId_idx").on(table.projectId),
+    index("recurrence_series_active_idx").on(table.active),
+    index("recurrence_series_nextDueDate_idx").on(table.nextDueDate),
+  ],
 );
 
 export const dispatches = sqliteTable(

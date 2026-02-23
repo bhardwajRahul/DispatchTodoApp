@@ -8,6 +8,8 @@ import {
   type TaskRecurrenceBehavior,
   type TaskRecurrenceType,
 } from "@/lib/task-recurrence";
+import { getTodayIsoDate } from "@/lib/task-recurrence-rollover";
+import { syncRecurrenceSeriesForUser } from "@/lib/recurrence-series-sync";
 import { db } from "@/db";
 import { tasks, projects } from "@/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
@@ -21,6 +23,9 @@ export const GET = withAuth(async (req, session) => {
   const status = url.searchParams.get("status");
   const priority = url.searchParams.get("priority");
   const projectId = url.searchParams.get("projectId");
+  const todayIsoDate = getTodayIsoDate(session.user.timeZone ?? null);
+
+  await syncRecurrenceSeriesForUser(session.user!.id!, todayIsoDate);
 
   const conditions = [eq(tasks.userId, session.user!.id!), isNull(tasks.deletedAt)];
 

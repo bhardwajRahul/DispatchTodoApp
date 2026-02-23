@@ -78,6 +78,8 @@ export function createTestDb() {
       "recurrenceType" text NOT NULL DEFAULT 'none',
       "recurrenceBehavior" text NOT NULL DEFAULT 'after_completion',
       "recurrenceRule" text,
+      "recurrenceSeriesId" text,
+      "recurrenceProcessedAt" text,
       "deletedAt" text,
       "createdAt" text NOT NULL DEFAULT (current_timestamp),
       "updatedAt" text NOT NULL DEFAULT (current_timestamp)
@@ -87,6 +89,29 @@ export function createTestDb() {
     CREATE INDEX "task_projectId_idx" ON "task" ("projectId");
     CREATE INDEX "task_status_idx" ON "task" ("status");
     CREATE INDEX "task_priority_idx" ON "task" ("priority");
+    CREATE INDEX "task_recurrenceSeriesId_idx" ON "task" ("recurrenceSeriesId");
+
+    CREATE TABLE "recurrence_series" (
+      "id" text PRIMARY KEY NOT NULL,
+      "userId" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+      "projectId" text REFERENCES "project"("id") ON DELETE SET NULL,
+      "title" text NOT NULL,
+      "description" text,
+      "priority" text NOT NULL DEFAULT 'medium',
+      "recurrenceType" text NOT NULL,
+      "recurrenceBehavior" text NOT NULL DEFAULT 'after_completion',
+      "recurrenceRule" text,
+      "nextDueDate" text NOT NULL,
+      "active" integer NOT NULL DEFAULT 1,
+      "deletedAt" text,
+      "createdAt" text NOT NULL DEFAULT (current_timestamp),
+      "updatedAt" text NOT NULL DEFAULT (current_timestamp)
+    );
+
+    CREATE INDEX "recurrence_series_userId_idx" ON "recurrence_series" ("userId");
+    CREATE INDEX "recurrence_series_projectId_idx" ON "recurrence_series" ("projectId");
+    CREATE INDEX "recurrence_series_active_idx" ON "recurrence_series" ("active");
+    CREATE INDEX "recurrence_series_nextDueDate_idx" ON "recurrence_series" ("nextDueDate");
 
     CREATE TABLE "note" (
       "id" text PRIMARY KEY NOT NULL,

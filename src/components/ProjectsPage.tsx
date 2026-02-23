@@ -251,7 +251,7 @@ export function ProjectsPage() {
 
   async function handleTaskDoneToggle(task: Task) {
     const nextStatus: TaskStatus = task.status === "done" ? "open" : "done";
-    const previousStatus = task.status;
+    const previousTask = task;
     const shouldAnimateDismiss = nextStatus === "done" && !showCompleted;
 
     if (completingTaskIds.includes(task.id)) {
@@ -270,20 +270,33 @@ export function ProjectsPage() {
     );
 
     try {
-      await api.tasks.update(task.id, { status: nextStatus });
+      const updatedTask = await api.tasks.update(task.id, { status: nextStatus });
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? updatedTask : t)),
+      );
       await refreshProjects();
       if (nextStatus === "done") {
+        if (task.recurrenceSeriesId) {
+          toast.success("Task completed.");
+          return;
+        }
         toast.undo(`"${task.title}" completed`, async () => {
           clearCompletionState(task.id);
           setTasks((prev) =>
-            prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+            prev.map((t) => (t.id === task.id ? previousTask : t)),
           );
           try {
-            await api.tasks.update(task.id, { status: previousStatus });
+            const restoredTask = await api.tasks.update(task.id, {
+              status: previousTask.status,
+              dueDate: previousTask.dueDate,
+            });
+            setTasks((prev) =>
+              prev.map((t) => (t.id === task.id ? restoredTask : t)),
+            );
             await refreshProjects();
           } catch {
             setTasks((prev) =>
-              prev.map((t) => (t.id === task.id ? { ...t, status: "done" } : t)),
+              prev.map((t) => (t.id === task.id ? updatedTask : t)),
             );
             toast.error("Failed to undo");
           }
@@ -292,7 +305,7 @@ export function ProjectsPage() {
     } catch {
       clearCompletionState(task.id);
       setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+        prev.map((t) => (t.id === task.id ? previousTask : t)),
       );
       toast.error("Failed to update task status");
     }
