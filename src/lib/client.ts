@@ -70,6 +70,23 @@ export interface Task {
   recurrenceType: TaskRecurrenceType;
   recurrenceBehavior: TaskRecurrenceBehavior;
   recurrenceRule: string | null;
+  recurrenceSeriesId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecurrenceSeries {
+  id: string;
+  userId: string;
+  projectId: string | null;
+  title: string;
+  description: string | null;
+  priority: TaskPriority;
+  recurrenceType: Exclude<TaskRecurrenceType, "none">;
+  recurrenceBehavior: TaskRecurrenceBehavior;
+  recurrenceRule: string | null;
+  nextDueDate: string;
+  active: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -404,6 +421,42 @@ export const api = {
         emitTasksChanged({ action: "delete", taskId: id });
         return result;
       }),
+  },
+
+  recurrences: {
+    list: () => request<RecurrenceSeries[]>("/recurrences"),
+
+    create: (data: {
+      title: string;
+      description?: string;
+      priority?: TaskPriority;
+      projectId?: string | null;
+      recurrenceType: Exclude<TaskRecurrenceType, "none">;
+      recurrenceBehavior?: TaskRecurrenceBehavior;
+      recurrenceRule?: TaskCustomRecurrenceRule | null;
+      nextDueDate: string;
+      active?: boolean;
+    }) =>
+      request<RecurrenceSeries>("/recurrences", { method: "POST", body: JSON.stringify(data) }),
+
+    update: (
+      id: string,
+      data: {
+        title?: string;
+        description?: string;
+        priority?: TaskPriority;
+        projectId?: string | null;
+        recurrenceType?: Exclude<TaskRecurrenceType, "none">;
+        recurrenceBehavior?: TaskRecurrenceBehavior;
+        recurrenceRule?: TaskCustomRecurrenceRule | null;
+        nextDueDate?: string;
+        active?: boolean;
+      },
+    ) =>
+      request<RecurrenceSeries>(`/recurrences/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+
+    delete: (id: string) =>
+      request<{ deleted: true }>(`/recurrences/${id}`, { method: "DELETE" }),
   },
 
   projects: {

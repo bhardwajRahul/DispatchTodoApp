@@ -153,7 +153,7 @@ export function PriorityInboxPage() {
 
   async function handleDoneToggle(task: Task) {
     const next: TaskStatus = task.status === "done" ? "open" : "done";
-    const previousStatus = task.status;
+    const previousTask = task;
 
     if (completingIds.includes(task.id)) {
       return;
@@ -171,18 +171,31 @@ export function PriorityInboxPage() {
     );
 
     try {
-      await api.tasks.update(task.id, { status: next });
+      const updatedTask = await api.tasks.update(task.id, { status: next });
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? updatedTask : t)),
+      );
       if (next === "done") {
+        if (task.recurrenceSeriesId) {
+          toast.success("Task completed.");
+          return;
+        }
         toast.undo(`"${task.title}" completed`, async () => {
           clearCompletionState(task.id);
           setTasks((prev) =>
-            prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+            prev.map((t) => (t.id === task.id ? previousTask : t)),
           );
           try {
-            await api.tasks.update(task.id, { status: previousStatus });
+            const restoredTask = await api.tasks.update(task.id, {
+              status: previousTask.status,
+              dueDate: previousTask.dueDate,
+            });
+            setTasks((prev) =>
+              prev.map((t) => (t.id === task.id ? restoredTask : t)),
+            );
           } catch {
             setTasks((prev) =>
-              prev.map((t) => (t.id === task.id ? { ...t, status: "done" } : t)),
+              prev.map((t) => (t.id === task.id ? updatedTask : t)),
             );
             toast.error("Failed to undo");
           }
@@ -192,7 +205,7 @@ export function PriorityInboxPage() {
       clearCompletionState(task.id);
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === task.id ? { ...t, status: previousStatus } : t,
+          t.id === task.id ? previousTask : t,
         ),
       );
       toast.error("Failed to update task status");

@@ -2,12 +2,15 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { db } from "@/db";
-import { projects, tasks } from "@/db/schema";
+import { projects, recurrenceSeries, tasks } from "@/db/schema";
 import { requireUserId, textResult } from "@/mcp-server/tools/context";
 import {
+  getNextTaskRecurrenceDate,
   parseTaskCustomRecurrenceRule,
   serializeTaskCustomRecurrenceRule,
 } from "@/lib/task-recurrence";
+import { getTodayIsoDate } from "@/lib/task-recurrence-rollover";
+import { syncRecurrenceSeriesForUser } from "@/lib/recurrence-series-sync";
 
 const TASK_STATUS = ["open", "in_progress", "done"] as const;
 const TASK_PRIORITY = ["low", "medium", "high"] as const;
@@ -34,6 +37,8 @@ export function registerTaskTools(server: McpServer) {
     },
     async (args, extra) => {
       const userId = requireUserId(extra);
+      const todayIsoDate = getTodayIsoDate(null);
+      await syncRecurrenceSeriesForUser(userId, todayIsoDate);
       const filters = [eq(tasks.userId, userId), isNull(tasks.deletedAt)];
       if (args.status) filters.push(eq(tasks.status, args.status));
       if (args.priority) filters.push(eq(tasks.priority, args.priority));
@@ -153,10 +158,18 @@ export function registerTaskTools(server: McpServer) {
       const [existing] = await db
         .select({
           id: tasks.id,
+          userId: tasks.userId,
+          title: tasks.title,
+          description: tasks.description,
+          status: tasks.status,
+          priority: tasks.priority,
+          projectId: tasks.projectId,
           dueDate: tasks.dueDate,
           recurrenceType: tasks.recurrenceType,
           recurrenceBehavior: tasks.recurrenceBehavior,
           recurrenceRule: tasks.recurrenceRule,
+          recurrenceSeriesId: tasks.recurrenceSeriesId,
+          recurrenceProcessedAt: tasks.recurrenceProcessedAt,
         })
         .from(tasks)
         .where(and(eq(tasks.id, args.id), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
@@ -241,6 +254,59 @@ export function registerTaskTools(server: McpServer) {
         .where(eq(tasks.id, args.id))
         .returning();
 
+      if (
+        args.status === "done"
+        && existing.status !== "done"
+        && existing.recurrenceSeriesId
+        && !existing.recurrenceProcessedAt
+      ) {
+        const todayIsoDate = getTodayIsoDate(null);
+        const [series] = await db
+          .select({
+            id: recurrenceSeries.id,
+            recurrenceType: recurrenceSeries.recurrenceType,
+            recurrenceBehavior: recurrenceSeries.recurrenceBehavior,
+            recurrenceRule: recurrenceSeries.recurrenceRule,
+          })
+          .from(recurrenceSeries)
+          .where(
+            and(
+              eq(recurrenceSeries.id, existing.recurrenceSeriesId),
+              eq(recurrenceSeries.userId, userId),
+              isNull(recurrenceSeries.deletedAt),
+              eq(recurrenceSeries.active, true),
+            ),
+          )
+          .limit(1);
+
+        if (series?.recurrenceBehavior === "after_completion") {
+          const anchorIsoDate = updated.dueDate && updated.dueDate > todayIsoDate
+            ? updated.dueDate
+            : todayIsoDate;
+          const nextDueDate = getNextTaskRecurrenceDate(
+            anchorIsoDate,
+            series.recurrenceType,
+            series.recurrenceRule,
+          );
+          if (nextDueDate) {
+            const processedAt = new Date().toISOString();
+            const [lock] = await db
+              .update(tasks)
+              .set({ recurrenceProcessedAt: processedAt, updatedAt: processedAt })
+              .where(and(eq(tasks.id, args.id), isNull(tasks.recurrenceProcessedAt)))
+              .returning({ id: tasks.id });
+            if (!lock) {
+              return textResult(`Task updated: ${updated.title}`, { task: updated });
+            }
+
+            await db
+              .update(recurrenceSeries)
+              .set({ nextDueDate, updatedAt: processedAt })
+              .where(eq(recurrenceSeries.id, series.id));
+          }
+        }
+      }
+
       return textResult(`Task updated: ${updated.title}`, { task: updated });
     },
   );
@@ -255,13 +321,82 @@ export function registerTaskTools(server: McpServer) {
     },
     async (args, extra) => {
       const userId = requireUserId(extra);
+      const [existing] = await db
+        .select({
+          id: tasks.id,
+          userId: tasks.userId,
+          title: tasks.title,
+          description: tasks.description,
+          status: tasks.status,
+          priority: tasks.priority,
+          projectId: tasks.projectId,
+          dueDate: tasks.dueDate,
+          recurrenceType: tasks.recurrenceType,
+          recurrenceBehavior: tasks.recurrenceBehavior,
+          recurrenceRule: tasks.recurrenceRule,
+          recurrenceSeriesId: tasks.recurrenceSeriesId,
+          recurrenceProcessedAt: tasks.recurrenceProcessedAt,
+        })
+        .from(tasks)
+        .where(and(eq(tasks.id, args.id), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
+        .limit(1);
+
+      if (!existing) throw new Error("Task not found.");
+
       const [task] = await db
         .update(tasks)
         .set({ status: "done", updatedAt: new Date().toISOString() })
-        .where(and(eq(tasks.id, args.id), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
+        .where(eq(tasks.id, args.id))
         .returning();
 
-      if (!task) throw new Error("Task not found.");
+      if (existing.status !== "done" && existing.recurrenceSeriesId && !existing.recurrenceProcessedAt) {
+        const todayIsoDate = getTodayIsoDate(null);
+        const [series] = await db
+          .select({
+            id: recurrenceSeries.id,
+            recurrenceType: recurrenceSeries.recurrenceType,
+            recurrenceBehavior: recurrenceSeries.recurrenceBehavior,
+            recurrenceRule: recurrenceSeries.recurrenceRule,
+          })
+          .from(recurrenceSeries)
+          .where(
+            and(
+              eq(recurrenceSeries.id, existing.recurrenceSeriesId),
+              eq(recurrenceSeries.userId, userId),
+              isNull(recurrenceSeries.deletedAt),
+              eq(recurrenceSeries.active, true),
+            ),
+          )
+          .limit(1);
+
+        if (series?.recurrenceBehavior === "after_completion") {
+          const anchorIsoDate = task.dueDate && task.dueDate > todayIsoDate
+            ? task.dueDate
+            : todayIsoDate;
+          const nextDueDate = getNextTaskRecurrenceDate(
+            anchorIsoDate,
+            series.recurrenceType,
+            series.recurrenceRule,
+          );
+          if (nextDueDate) {
+            const processedAt = new Date().toISOString();
+            const [lock] = await db
+              .update(tasks)
+              .set({ recurrenceProcessedAt: processedAt, updatedAt: processedAt })
+              .where(and(eq(tasks.id, args.id), isNull(tasks.recurrenceProcessedAt)))
+              .returning({ id: tasks.id });
+            if (!lock) {
+              return textResult(`Task completed: ${task.title}`, { task });
+            }
+
+            await db
+              .update(recurrenceSeries)
+              .set({ nextDueDate, updatedAt: processedAt })
+              .where(eq(recurrenceSeries.id, series.id));
+          }
+        }
+      }
+
       return textResult(`Task completed: ${task.title}`, { task });
     },
   );

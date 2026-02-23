@@ -1,4 +1,4 @@
-import type { Task } from "@/lib/client";
+import type { RecurrenceSeries, Task } from "@/lib/client";
 import {
   describeTaskRecurrence,
   getNextTaskRecurrenceDate,
@@ -23,8 +23,11 @@ export function getTaskRecurrencePreview(task: Task): {
   const todayIsoDate = getTodayIsoDate();
 
   if (task.recurrenceBehavior === "after_completion") {
+    const anchor = task.dueDate && task.dueDate > todayIsoDate
+      ? task.dueDate
+      : todayIsoDate;
     const next = getNextTaskRecurrenceDate(
-      task.dueDate ?? todayIsoDate,
+      anchor,
       task.recurrenceType,
       task.recurrenceRule,
     );
@@ -33,7 +36,7 @@ export function getTaskRecurrencePreview(task: Task): {
       cadence,
       next,
       detail: next
-        ? `If completed today, next occurrence is ${next}.`
+        ? `If completed today, next occurrence is scheduled for ${next} (active at midnight).`
         : "Set a valid recurrence rule to preview the next occurrence.",
     };
   }
@@ -51,7 +54,24 @@ export function getTaskRecurrencePreview(task: Task): {
     cadence,
     next,
     detail: task.dueDate
-      ? (next ? `Next scheduled duplicate: ${next}.` : "Unable to calculate the next duplicate date.")
+      ? (next ? `Next scheduled duplicate: ${next} (active at midnight).` : "Unable to calculate the next duplicate date.")
       : "Add a due date to anchor schedule-based duplicates.",
+  };
+}
+
+export function getRecurrenceSeriesPreview(series: RecurrenceSeries): {
+  cadence: string;
+  next: string;
+  detail: string;
+} {
+  const cadence = describeTaskRecurrence(series.recurrenceType, series.recurrenceRule);
+  const detail = series.recurrenceBehavior === "after_completion"
+    ? `Next instance due ${series.nextDueDate}. Completing an instance advances this date.`
+    : `Next scheduled instance due ${series.nextDueDate}. Instances are created at midnight on schedule dates.`;
+
+  return {
+    cadence,
+    next: series.nextDueDate,
+    detail,
   };
 }

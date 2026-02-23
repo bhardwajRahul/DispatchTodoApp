@@ -216,7 +216,7 @@ export function DispatchPage() {
 
   async function handleDoneToggle(task: Task) {
     const next: TaskStatus = task.status === "done" ? "open" : "done";
-    const previousStatus = task.status;
+    const previousTask = task;
 
     if (completingIds.includes(task.id)) {
       return;
@@ -237,26 +237,45 @@ export function DispatchPage() {
     );
 
     try {
-      await api.tasks.update(task.id, { status: next });
+      const updatedTask = await api.tasks.update(task.id, { status: next });
+      setLinkedTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? updatedTask : t)),
+      );
+      setAllTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? updatedTask : t)),
+      );
       if (next === "done") {
+        if (task.recurrenceSeriesId) {
+          toast.success("Task completed.");
+          return;
+        }
         toast.undo(
           `"${renderTemplate(task.title, { referenceDate: task.dueDate ?? task.createdAt })}" completed`,
           async () => {
             clearCompletionState(task.id);
             setLinkedTasks((prev) =>
-              prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+              prev.map((t) => (t.id === task.id ? previousTask : t)),
             );
             setAllTasks((prev) =>
-              prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+              prev.map((t) => (t.id === task.id ? previousTask : t)),
             );
             try {
-              await api.tasks.update(task.id, { status: previousStatus });
-            } catch {
+              const restoredTask = await api.tasks.update(task.id, {
+                status: previousTask.status,
+                dueDate: previousTask.dueDate,
+              });
               setLinkedTasks((prev) =>
-                prev.map((t) => (t.id === task.id ? { ...t, status: "done" } : t)),
+                prev.map((t) => (t.id === task.id ? restoredTask : t)),
               );
               setAllTasks((prev) =>
-                prev.map((t) => (t.id === task.id ? { ...t, status: "done" } : t)),
+                prev.map((t) => (t.id === task.id ? restoredTask : t)),
+              );
+            } catch {
+              setLinkedTasks((prev) =>
+                prev.map((t) => (t.id === task.id ? updatedTask : t)),
+              );
+              setAllTasks((prev) =>
+                prev.map((t) => (t.id === task.id ? updatedTask : t)),
               );
               toast.error("Failed to undo");
             }
@@ -266,10 +285,10 @@ export function DispatchPage() {
     } catch {
       clearCompletionState(task.id);
       setLinkedTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+        prev.map((t) => (t.id === task.id ? previousTask : t)),
       );
       setAllTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+        prev.map((t) => (t.id === task.id ? previousTask : t)),
       );
       toast.error("Failed to update task status");
     }

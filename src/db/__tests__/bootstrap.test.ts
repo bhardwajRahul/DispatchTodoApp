@@ -53,6 +53,26 @@ describe("ensureSchemaColumns", () => {
     expect(columns).toContain("recurrenceType");
     expect(columns).toContain("recurrenceRule");
     expect(columns).toContain("recurrenceBehavior");
+    expect(columns).toContain("recurrenceSeriesId");
+    expect(columns).toContain("recurrenceProcessedAt");
+  });
+
+  it("creates recurrence series table when missing", () => {
+    const sqlite = createSqlite(`
+      CREATE TABLE "user" (
+        "id" text PRIMARY KEY NOT NULL
+      );
+      CREATE TABLE "project" (
+        "id" text PRIMARY KEY NOT NULL
+      );
+    `);
+
+    ensureSchemaColumns(sqlite);
+
+    const tables = sqlite.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'recurrence_series' LIMIT 1",
+    ).get() as { name: string } | undefined;
+    expect(tables?.name).toBe("recurrence_series");
   });
 
   it("adds missing security setting columns used by admin routes", () => {

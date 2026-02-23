@@ -1,5 +1,7 @@
 import { withAuth, jsonResponse, errorResponse } from "@/lib/api";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import { getTodayIsoDate } from "@/lib/task-recurrence-rollover";
+import { syncRecurrenceSeriesForUser } from "@/lib/recurrence-series-sync";
 import { db } from "@/db";
 import { projects, tasks } from "@/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
@@ -9,6 +11,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 /** GET /api/projects/[id]/tasks — list tasks for a project */
 export const GET = withAuth(async (req, session, ctx) => {
   const { id } = await (ctx as RouteContext).params;
+  const todayIsoDate = getTodayIsoDate(session.user.timeZone ?? null);
+
+  await syncRecurrenceSeriesForUser(session.user!.id!, todayIsoDate);
 
   const [project] = await db
     .select({ id: projects.id })

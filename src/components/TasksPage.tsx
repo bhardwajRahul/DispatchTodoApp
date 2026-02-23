@@ -35,6 +35,7 @@ export function TasksPage() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [activeRecurringSeriesCount, setActiveRecurringSeriesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "">(
     (searchParams.get("status") as TaskStatus) || "",
@@ -97,6 +98,23 @@ export function TasksPage() {
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  useEffect(() => {
+    let active = true;
+    api.recurrences
+      .list()
+      .then((rows) => {
+        if (!active) return;
+        setActiveRecurringSeriesCount(rows.filter((row) => row.active).length);
+      })
+      .catch(() => {
+        if (!active) return;
+        setActiveRecurringSeriesCount(0);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -181,7 +199,7 @@ export function TasksPage() {
   const filteredTasks = (showCompleted
     ? tasks
     : tasks.filter((task) => task.status !== "done" || completingIds.includes(task.id)))
-    .filter((task) => (showRecurringOnly ? task.recurrenceType !== "none" : true));
+    .filter((task) => (showRecurringOnly ? task.recurrenceSeriesId !== null : true));
 
   const sorted = [...filteredTasks].sort((a, b) => {
     if (sortBy === "dueDate") {
@@ -221,7 +239,7 @@ export function TasksPage() {
 
   async function handleDoneToggle(task: Task) {
     const next: TaskStatus = task.status === "done" ? "open" : "done";
-    const previousStatus = task.status;
+    const previousTask = task;
     const shouldAnimateDismiss = next === "done" && !showCompleted;
 
     if (completingIds.includes(task.id)) {
@@ -240,20 +258,33 @@ export function TasksPage() {
     );
 
     try {
-      await api.tasks.update(task.id, { status: next });
+      const updatedTask = await api.tasks.update(task.id, { status: next });
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? updatedTask : t)),
+      );
       if (next === "done") {
+        if (task.recurrenceSeriesId) {
+          toast.success("Task completed.");
+          return;
+        }
         toast.undo(
           `"${renderTemplate(task.title, { referenceDate: task.dueDate ?? task.createdAt })}" completed`,
           async () => {
             clearCompletionState(task.id);
             setTasks((prev) =>
-              prev.map((t) => (t.id === task.id ? { ...t, status: previousStatus } : t)),
+              prev.map((t) => (t.id === task.id ? previousTask : t)),
             );
             try {
-              await api.tasks.update(task.id, { status: previousStatus });
+              const restoredTask = await api.tasks.update(task.id, {
+                status: previousTask.status,
+                dueDate: previousTask.dueDate,
+              });
+              setTasks((prev) =>
+                prev.map((t) => (t.id === task.id ? restoredTask : t)),
+              );
             } catch {
               setTasks((prev) =>
-                prev.map((t) => (t.id === task.id ? { ...t, status: "done" } : t)),
+                prev.map((t) => (t.id === task.id ? updatedTask : t)),
               );
               toast.error("Failed to undo");
             }
@@ -264,7 +295,7 @@ export function TasksPage() {
       clearCompletionState(task.id);
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === task.id ? { ...t, status: previousStatus } : t,
+          t.id === task.id ? previousTask : t,
         ),
       );
       toast.error("Failed to update task status");
@@ -302,7 +333,7 @@ export function TasksPage() {
   const openCount = tasks.filter((t) => t.status === "open").length;
   const inProgressCount = tasks.filter((t) => t.status === "in_progress").length;
   const doneCount = tasks.filter((t) => t.status === "done").length;
-  const recurringCount = tasks.filter((t) => t.recurrenceType !== "none").length;
+  const recurringCount = activeRecurringSeriesCount;
   const hasAnyTasks = tasks.length > 0;
   const emptyMessage = statusFilter || priorityFilter || projectFilter
     ? "Try adjusting your filters."
@@ -718,9 +749,10 @@ function TaskRow({
   const renderedDescription = task.description
     ? renderTemplate(task.description, { referenceDate })
     : "";
-  const recurrencePreview = task.recurrenceType !== "none"
+  const recurrencePreview = task.recurrenceType !== "none" && !task.recurrenceSeriesId
     ? getTaskRecurrencePreview(task)
     : null;
+  const hasSeriesRecurrence = task.recurrenceSeriesId !== null;
 
   function handleStatusClick() {
     if (task.status !== "done") {
@@ -810,13 +842,15 @@ function TaskRow({
         >
           {task.priority}
         </span>
-        {recurrencePreview && (
+        {(hasSeriesRecurrence || recurrencePreview) && (
           <span
-            title={`${recurrencePreview.cadence} • ${RECURRENCE_BEHAVIOR_LABELS[task.recurrenceBehavior]}`}
+            title={hasSeriesRecurrence
+              ? "Managed by Recurring Manager"
+              : `${recurrencePreview!.cadence} • ${RECURRENCE_BEHAVIOR_LABELS[task.recurrenceBehavior]}`}
             className="inline-flex items-center gap-1 rounded-full border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-            {recurrencePreview.cadence}
+            {hasSeriesRecurrence ? "Recurring" : recurrencePreview!.cadence}
           </span>
         )}
 

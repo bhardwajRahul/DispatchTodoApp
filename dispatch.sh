@@ -48,6 +48,7 @@ show_help() {
   echo "    status     Show container status"
   echo "    pull       Pull latest image and restart"
   echo "    pullpreprod Pull preprod image tag and restart using it"
+  echo "    pulllatest Pull latest image tag and restart using it"
   echo "    freshstart Remove containers and volumes, then start fresh"
   echo "    down       Stop and remove containers/network"
   echo "    updateself Download the latest version of this launcher from GitHub"
@@ -640,6 +641,21 @@ cmd_pullpreprod() {
   run_compose up -d --remove-orphans
 }
 
+cmd_pulllatest() {
+  show_logo
+  assert_docker
+  assert_env_file
+
+  local latest_image="ghcr.io/nkasco/dispatchtodoapp:latest"
+  set_env_value "DISPATCH_IMAGE" "$latest_image"
+  echo -e "${DIM}Using latest image: ${latest_image}${RESET}"
+
+  run_compose pull
+  echo -e "${DIM}Cleaning up old Dispatch containers...${RESET}"
+  run_compose down --remove-orphans
+  run_compose up -d --remove-orphans
+}
+
 cmd_freshstart() {
   show_logo
   assert_docker
@@ -670,6 +686,7 @@ case "$COMMAND" in
   updateself) cmd_updateself ;;
   pull) cmd_pull ;;
   pullpreprod) cmd_pullpreprod ;;
+  pulllatest) cmd_pulllatest ;;
   freshstart) cmd_freshstart ;;
   version) echo "${VERSION_MONIKER}" ;;
   help) show_help ;;

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mockSession } from "@/test/setup";
 import { createTestDb } from "@/test/db";
-import { users } from "@/db/schema";
+import { recurrenceSeries, users } from "@/db/schema";
 
 // Set up a fresh in-memory DB before each test and mock @/db
 let testDb: ReturnType<typeof createTestDb>;
@@ -21,8 +21,18 @@ const {
 } = await import("@/app/api/tasks/[id]/route");
 const { POST: CREATE_PROJECT } = await import("@/app/api/projects/route");
 
-const TEST_USER = { id: "user-1", name: "Test User", email: "test@test.com" };
-const OTHER_USER = { id: "user-2", name: "Other User", email: "other@test.com" };
+const TEST_USER = { id: "user-1", name: "Test User", email: "test@test.com", timeZone: "UTC" };
+const OTHER_USER = { id: "user-2", name: "Other User", email: "other@test.com", timeZone: "UTC" };
+
+function todayIsoUtc() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysIsoUtc(date: string, days: number) {
+  const next = new Date(`${date}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}
 
 function jsonReq(url: string, method: string, body?: unknown) {
   return new Request(url, {
@@ -404,6 +414,35 @@ describe("Tasks API", () => {
       expect(data).toHaveLength(3); // Only the 3 seeded tasks
       expect(data.every((t: { userId: string }) => t.userId === TEST_USER.id)).toBe(true);
     });
+
+    it("migrates legacy recurring tasks to recurrence series at read time", async () => {
+      const yesterday = addDaysIsoUtc(todayIsoUtc(), -1);
+      const tomorrow = addDaysIsoUtc(todayIsoUtc(), 1);
+      const createRes = await POST(
+        jsonReq("http://localhost/api/tasks", "POST", {
+          title: "Due recurring done",
+          status: "done",
+          dueDate: yesterday,
+          recurrenceType: "daily",
+        }),
+        {},
+      );
+      const created = await createRes.json();
+      expect(created.status).toBe("done");
+
+      const res = await GET(new Request("http://localhost/api/tasks"), {});
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      const migrated = data.find((task: { id: string }) => task.id === created.id);
+      expect(migrated.status).toBe("done");
+      expect(migrated.dueDate).toBe(yesterday);
+      expect(migrated.recurrenceType).toBe("none");
+      expect(migrated.recurrenceSeriesId).toBeTruthy();
+
+      const seriesRows = await testDb.db.select().from(recurrenceSeries);
+      expect(seriesRows).toHaveLength(1);
+      expect(seriesRows[0].nextDueDate).toBe(tomorrow);
+    });
   });
 
   // --- GET /api/tasks/[id] ---
@@ -599,6 +638,185 @@ describe("Tasks API", () => {
       expect(data.recurrenceType).toBe("custom");
       expect(data.recurrenceBehavior).toBe("after_completion");
       expect(JSON.parse(data.recurrenceRule)).toEqual({ interval: 3, unit: "day" });
+    });
+
+    it("completing a legacy recurring task does not spawn a new task instance", async () => {
+      const today = todayIsoUtc();
+      const createRes = await POST(
+        jsonReq("http://localhost/api/tasks", "POST", {
+          title: "Daily recurring",
+          dueDate: today,
+          recurrenceType: "daily",
+          recurrenceBehavior: "after_completion",
+        }),
+        {},
+      );
+      const created = await createRes.json();
+
+      const res = await PUT(
+        jsonReq(`http://localhost/api/tasks/${created.id}`, "PUT", {
+          status: "done",
+        }),
+        ctx(created.id),
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.status).toBe("done");
+      expect(data.dueDate).toBe(today);
+      expect(data.recurrenceType).toBe("daily");
+      expect(data.spawnedTaskId).toBeUndefined();
+
+      const listRes = await GET(new Request("http://localhost/api/tasks"), {});
+      const list = await listRes.json();
+      const recurringInstances = list.filter((task: { title: string }) => task.title === "Daily recurring");
+      expect(recurringInstances).toHaveLength(1);
+    });
+
+    it("does not schedule another occurrence when completing a future scheduled occurrence", async () => {
+      const today = todayIsoUtc();
+      const tomorrow = addDaysIsoUtc(today, 1);
+      const createRes = await POST(
+        jsonReq("http://localhost/api/tasks", "POST", {
+          title: "Future recurring",
+          dueDate: tomorrow,
+          recurrenceType: "daily",
+          recurrenceBehavior: "after_completion",
+        }),
+        {},
+      );
+      const created = await createRes.json();
+
+      const res = await PUT(
+        jsonReq(`http://localhost/api/tasks/${created.id}`, "PUT", {
+          status: "done",
+        }),
+        ctx(created.id),
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.status).toBe("done");
+      expect(data.dueDate).toBe(tomorrow);
+      expect(data.recurrenceType).toBe("daily");
+      expect(data.spawnedTaskId).toBeUndefined();
+    });
+
+    it("completing an overdue series-linked task schedules the next series date from today", async () => {
+      const today = todayIsoUtc();
+      const yesterday = addDaysIsoUtc(today, -1);
+      const tomorrow = addDaysIsoUtc(today, 1);
+      const createRes = await POST(
+        jsonReq("http://localhost/api/tasks", "POST", {
+          title: "Overdue recurring",
+          dueDate: yesterday,
+          recurrenceType: "daily",
+          recurrenceBehavior: "after_completion",
+        }),
+        {},
+      );
+      const created = await createRes.json();
+
+      await testDb.db.insert(recurrenceSeries).values({
+        id: "series-1",
+        userId: TEST_USER.id,
+        projectId: null,
+        title: "Overdue recurring",
+        description: null,
+        priority: "medium",
+        recurrenceType: "daily",
+        recurrenceBehavior: "after_completion",
+        recurrenceRule: null,
+        nextDueDate: yesterday,
+        active: true,
+        deletedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      testDb.sqlite
+        .prepare('UPDATE "task" SET "recurrenceSeriesId" = ? WHERE "id" = ?')
+        .run("series-1", created.id);
+
+      const res = await PUT(
+        jsonReq(`http://localhost/api/tasks/${created.id}`, "PUT", {
+          status: "done",
+        }),
+        ctx(created.id),
+      );
+      expect(res.status).toBe(200);
+      await res.json();
+
+      const seriesRow = testDb.sqlite
+        .prepare('SELECT "nextDueDate" FROM "recurrence_series" WHERE "id" = ?')
+        .get("series-1") as { nextDueDate: string };
+      expect(seriesRow.nextDueDate).toBe(tomorrow);
+    });
+
+    it("does not advance recurrence series twice for the same task id", async () => {
+      const today = todayIsoUtc();
+      const tomorrow = addDaysIsoUtc(today, 1);
+      const farFuture = addDaysIsoUtc(today, 5);
+
+      const createRes = await POST(
+        jsonReq("http://localhost/api/tasks", "POST", {
+          title: "Single trigger task",
+          dueDate: today,
+        }),
+        {},
+      );
+      const created = await createRes.json();
+
+      await testDb.db.insert(recurrenceSeries).values({
+        id: "series-lock",
+        userId: TEST_USER.id,
+        projectId: null,
+        title: "Single trigger task",
+        description: null,
+        priority: "medium",
+        recurrenceType: "daily",
+        recurrenceBehavior: "after_completion",
+        recurrenceRule: null,
+        nextDueDate: today,
+        active: true,
+        deletedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      testDb.sqlite
+        .prepare('UPDATE "task" SET "recurrenceSeriesId" = ? WHERE "id" = ?')
+        .run("series-lock", created.id);
+
+      const firstDone = await PUT(
+        jsonReq(`http://localhost/api/tasks/${created.id}`, "PUT", {
+          status: "done",
+        }),
+        ctx(created.id),
+      );
+      expect(firstDone.status).toBe(200);
+
+      const afterFirst = testDb.sqlite
+        .prepare('SELECT "nextDueDate" FROM "recurrence_series" WHERE "id" = ?')
+        .get("series-lock") as { nextDueDate: string };
+      expect(afterFirst.nextDueDate).toBe(tomorrow);
+
+      await PUT(
+        jsonReq(`http://localhost/api/tasks/${created.id}`, "PUT", {
+          status: "open",
+          dueDate: farFuture,
+        }),
+        ctx(created.id),
+      );
+
+      const secondDone = await PUT(
+        jsonReq(`http://localhost/api/tasks/${created.id}`, "PUT", {
+          status: "done",
+        }),
+        ctx(created.id),
+      );
+      expect(secondDone.status).toBe(200);
+
+      const afterSecond = testDb.sqlite
+        .prepare('SELECT "nextDueDate" FROM "recurrence_series" WHERE "id" = ?')
+        .get("series-lock") as { nextDueDate: string };
+      expect(afterSecond.nextDueDate).toBe(tomorrow);
     });
 
     it("updates recurrence behavior when valid", async () => {

@@ -1,4 +1,6 @@
 import { withAuth, jsonResponse, errorResponse } from "@/lib/api";
+import { getTodayIsoDate } from "@/lib/task-recurrence-rollover";
+import { syncRecurrenceSeriesForUser } from "@/lib/recurrence-series-sync";
 import { db } from "@/db";
 import { dispatches, dispatchTasks, tasks } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -8,6 +10,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 /** GET /api/dispatches/[id]/tasks — list tasks linked to a dispatch */
 export const GET = withAuth(async (req, session, ctx) => {
   const { id } = await (ctx as RouteContext).params;
+  const todayIsoDate = getTodayIsoDate(session.user.timeZone ?? null);
+
+  await syncRecurrenceSeriesForUser(session.user!.id!, todayIsoDate);
 
   // Verify dispatch belongs to user
   const [dispatch] = await db
@@ -33,6 +38,7 @@ export const GET = withAuth(async (req, session, ctx) => {
       recurrenceType: tasks.recurrenceType,
       recurrenceBehavior: tasks.recurrenceBehavior,
       recurrenceRule: tasks.recurrenceRule,
+      recurrenceSeriesId: tasks.recurrenceSeriesId,
       createdAt: tasks.createdAt,
       updatedAt: tasks.updatedAt,
     })
