@@ -25,6 +25,7 @@ import {
   IconGrid,
   IconSearch,
 } from "@/components/icons";
+import { renderTemplate } from "@/lib/templates";
 
 const STATUS_BADGES: Record<TaskStatus, string> = {
   open: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
@@ -158,7 +159,7 @@ export function Dashboard({ userName }: { userName: string }) {
     ...tasks.map((task) => ({
       id: `task-${task.id}`,
       type: "task" as const,
-      title: task.title,
+      title: renderTemplate(task.title, { referenceDate: task.dueDate ?? task.createdAt }),
       date: task.updatedAt,
       status: task.status,
     })),
@@ -187,7 +188,7 @@ export function Dashboard({ userName }: { userName: string }) {
     .slice(0, 4)
     .map((task) => ({
       id: task.id,
-      title: task.title,
+      title: renderTemplate(task.title, { referenceDate: task.dueDate ?? task.createdAt }),
       status: task.status,
       projectName: projectMap.get(task.projectId || "")?.name ?? "Project",
       updatedAt: task.updatedAt,
@@ -699,6 +700,8 @@ function StatPill({
 }
 
 function DueItem({ task, index }: { task: Task; index: number }) {
+  const renderedTitle = renderTemplate(task.title, { referenceDate: task.dueDate ?? task.createdAt });
+
   return (
     <div
       className={`rounded-xl border border-neutral-200/70 bg-white/70 px-3 py-2 transition-colors hover:bg-white/95 dark:border-neutral-700/80 dark:bg-neutral-800/35 dark:hover:bg-neutral-800/55 ${
@@ -708,7 +711,7 @@ function DueItem({ task, index }: { task: Task; index: number }) {
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">{task.title}</p>
+          <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">{renderedTitle}</p>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">Due {task.dueDate}</p>
         </div>
       </div>
