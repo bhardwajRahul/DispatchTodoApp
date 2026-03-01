@@ -432,3 +432,54 @@ Add profile-level export options that let a user migrate Dispatch data into exte
 - [ ] **18.25** Implement a **URI-scheme adapter** for outbound create/update flows (for example `app:///add`, `app:///update`, JSON command payloads) using user-provided auth token handling and field mapping from Dispatch tasks/projects.
 - [ ] **18.26** Add an optional desktop-only local bridge mode (script/automation runner) for richer automation where URI-scheme coverage is insufficient.
 - [ ] **18.27** Scope v1 local-automation sync to **Dispatch -> external system push** plus manual/periodic reconciliation, and defer true bidirectional sync unless/ until a supported API surface becomes available.
+
+## Phase 19: Import Pipeline and Migration Onboarding
+
+Add a first-class import system that helps a user jump-start Dispatch from common external export formats, with a guided migration experience instead of a bare file uploader.
+
+### 19A - Import UX, Guidance, and Onboarding
+
+- [ ] **19.1** Add an **Imports** entry point to `/profile` and, if needed for flow clarity, a dedicated `/imports` page with a polished multi-step wizard: source format, file upload, field mapping, preview, and commit.
+- [ ] **19.2** Build a visually rich import guide on the import surface with format cards, sample-file hints, "what will happen" expectations, and concise migration advice so the UI feels clear, calm, and beautiful rather than technical and dense.
+- [ ] **19.3** Add per-format guide states that explain expected file/package structure before upload (for example spreadsheet columns, board-style JSON, workspace ZIP contents, calendar/task files, plain-text task syntax).
+- [ ] **19.4** Add an import dry-run preview that shows counts for tasks, notes, projects, dispatch summaries, skipped records, inferred mappings, and warnings before any data is written.
+- [ ] **19.5** Add an import results screen with created/updated/skipped totals, attachment handling notes, and links into the imported content so the user can validate the migration immediately.
+
+### 19B - Canonical Import Pipeline and Safety
+
+- [ ] **19.6** Create `POST /api/imports` and `POST /api/imports/preview` behind `withAuth` for authenticated, user-scoped dry runs and committed imports. Store no imported data outside the authenticated user's scope.
+- [ ] **19.7** Implement a pluggable import adapter layer (`src/lib/imports/`) with a canonical intermediate model for tasks, notes, projects, dispatch summaries, comments/checklists as note content, source metadata, and unresolved extras.
+- [ ] **19.8** Add staged import processing: parse -> normalize -> validate -> map -> preview -> commit, so every adapter follows the same debuggable pipeline and preview output stays consistent across formats.
+- [ ] **19.9** Add deterministic timezone handling for imported due dates, reminders, and date-only values using the user's profile timezone, with explicit fallback rules when source exports are ambiguous or omit timezone data.
+- [ ] **19.10** Add idempotency and duplicate-detection rules for repeated imports (source fingerprints, stable external IDs when present, and safe re-import behavior options such as skip, create copy, or merge).
+- [ ] **19.11** Add import session logging with a manifest of source format, adapter version, uploaded filenames, parse warnings, and mapping decisions so migrations are traceable and supportable.
+
+### 19C - Priority Import Format Families
+
+- [ ] **19.12** Add a **structured CSV / spreadsheet** import adapter for the common export shape used by task apps and list/table tools, including configurable column mapping for title, description, status, priority, due date, project, tags/labels, completed state, and assignee/comment fallbacks.
+- [ ] **19.13** Add a **board-style JSON** import adapter for kanban export packages, mapping boards/lists/cards/checklists/comments into Dispatch projects, task status, subtasks/checklist markdown, and note-style activity history where direct schema parity does not exist.
+- [ ] **19.14** Add a **workspace ZIP** import adapter for document/task workspace exports that bundle Markdown, CSV, HTML, and nested assets; import databases/tasks as structured records and long-form pages as notes while preserving source links and hierarchy metadata.
+- [ ] **19.15** Add an **iCalendar (.ics)** import adapter that accepts VTODO and VEVENT-oriented exports, translating calendar/task entries into Dispatch tasks with clear rules for all-day events, recurring rules, and completion state.
+- [ ] **19.16** Add a **plain-text task format** import adapter for text-first task exports (for example tokenized priority/date/project/context lines), preserving unsupported tokens in structured note metadata instead of dropping them.
+- [ ] **19.17** Add a **Dispatch round-trip import adapter** for files produced by Phase 18 exports so backup/restore and portability are reliable, testable, and loss-minimized.
+
+### 19D - Mapping, Data Fidelity, and Fallback Rules
+
+- [ ] **19.18** Add a field-mapping UI for CSV/spreadsheet imports with smart auto-detection, editable column pairing, and clear fallback labels when Dispatch has no native equivalent field.
+- [ ] **19.19** Define import conversion rules for foreign concepts that do not map 1:1 to Dispatch: sections/lists -> projects or status buckets, subtasks/checklists -> markdown checklist blocks, comments/activity -> appended note sections, labels/tags -> project or inline metadata, attachments -> preserved references or imported asset manifests.
+- [ ] **19.20** Add per-format validation and warning reporting so the preview explicitly calls out truncation, unsupported recurrence syntax, dropped automation rules, archived/completed-item handling, and attachment limitations.
+- [ ] **19.21** Add opt-in import controls for completed/archived items, closed projects/boards, comments/history, and attachments/assets so the user can choose speed versus fidelity.
+
+### 19E - Quality, Performance, and Recovery
+
+- [ ] **19.22** Add integration tests for preview and commit endpoints covering auth, user scoping, duplicate detection, rollback on failed commit, and adapter-specific normalization behavior.
+- [ ] **19.23** Add snapshot/fixture tests for each adapter using representative sample exports from major format families: spreadsheet tables, board JSON, workspace ZIP bundles, `.ics`, and plain-text task files.
+- [ ] **19.24** Add UI tests for the import wizard, mapping screens, beautiful help states, preview warnings, successful commit flow, and recoverable failure states.
+- [ ] **19.25** Add file-size, row-count, and archive-entry guardrails with streaming/parsing limits, clear error messaging, and graceful degradation for large imports on a local machine.
+- [ ] **19.26** Add transactional commit behavior so an import either lands cleanly or rolls back safely when a write-stage failure occurs, with partial-write prevention called out in the result UI.
+
+### 19F - Documentation and Product Fit
+
+- [ ] **19.27** Update `spec.md` and the user-facing docs to include import architecture, supported source families, migration caveats, and round-trip expectations between Phase 18 exports and Phase 19 imports.
+- [ ] **19.28** Add a maintained import-compatibility matrix to the docs and UI that describes what Dispatch preserves exactly, what is approximated, and what is intentionally not imported for each supported format family.
+- [ ] **19.29** Add a curated set of local sample import fixtures and screenshot references so future UI or parser changes can be regression-tested against realistic migration scenarios.
